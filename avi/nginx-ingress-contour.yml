@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment-contour
+spec:
+  selector:
+    matchLabels:
+      app: nginx-contour
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: nginx-contour
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
+        ports:
+        - containerPort: 80
+        livenessProbe:
+          tcpSocket:
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        readinessProbe:
+          tcpSocket:
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: nginx-service-contour
+spec:
+  selector:
+    app: nginx-contour
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 80
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: nginx-ingress-contour
+  annotations:
+    kubernetes.io/ingress.class: contour
+spec:
+  rules:
+  - host: nginx.contour.rito.tkg-vsp-lab.hyrulelab.com
+    http:
+      paths:
+      - backend:
+          serviceName: nginx-service-contour
+          servicePort: 80

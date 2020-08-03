@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment-contour-ssl
+spec:
+  selector:
+    matchLabels:
+      app: nginx-contour-ssl
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: nginx-contour-ssl
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
+        ports:
+        - containerPort: 80
+        livenessProbe:
+          tcpSocket:
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        readinessProbe:
+          tcpSocket:
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: nginx-service-contour-ssl
+spec:
+  selector:
+    app: nginx-contour-ssl
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 80
+  type: ClusterIP
+---
+apiVersion: projectcontour.io/v1
+kind: HTTPProxy
+metadata:
+  name: nginx-httpproxy-contour-ssl
+spec:
+  virtualhost:
+    fqdn: nginx-ssl.contour.rito.tkg-vsp-lab.hyrulelab.com
+    tls:
+      secretName: nginx-cert-tls
+  routes:
+    - services:
+        - name: nginx-service-contour-ssl
+          port: 80
+---
+apiVersion: cert-manager.io/v1alpha2
+kind: Issuer
+metadata:
+  name: nginx-ca-issuer
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1alpha2
+kind: Certificate
+metadata:
+  name: nginx-cert
+spec:
+  # Secret names are always required.
+  secretName: nginx-cert-tls
+  duration: 2160h # 90d
+  renewBefore: 360h # 15d
+  organization:
+    - vmware
+  commonName: nginx-contour
+  isCA: false
+  keySize: 2048
+  keyAlgorithm: rsa
+  keyEncoding: pkcs1
+  # At least one of a DNS Name, USI SAN, or IP address is required.
+  dnsNames:
+    - nginx-ssl
+    - nginx-ssl.contour.rito.tkg-vsp-lab.hyrulelab.com
+  # Issuer references are always required.
+  issuerRef:
+    name: nginx-ca-issuer
+    # We can reference ClusterIssuers by changing the kind here.
+    # The default value is Issuer (i.e. a locally namespaced Issuer)
+    kind: Issuer
+    # This is optional since cert-manager will default to this value however
+    # if you are using an external issuer, change this to that issuer group.
+    group: cert-manager.io
