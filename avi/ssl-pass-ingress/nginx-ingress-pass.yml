@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-avi-pass
+spec:
+  selector:
+    matchLabels:
+      app: nginx-avi-pass
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: nginx-avi-pass
+    spec:
+      containers:
+        - name: nginx
+          image: gcr.io/kubernetes-development-244305/nginx:latest
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: nginx-avi-pass-service
+spec:
+  selector:
+    app: nginx-avi-pass
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 80
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nginx-avi-pass-ingress
+  annotations:
+    passthrough.ako.vmware.com/enabled: "true"
+spec:
+  rules:
+  - host: nginx-pass.avi.tkg-vsp-lab.hyrulelab.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: nginx-avi-pass-service
+            port:
+              number: 80

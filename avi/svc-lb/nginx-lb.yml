@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-avi-lb
+spec:
+  selector:
+    matchLabels:
+      app: nginx-avi-lb
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: nginx-avi-lb
+    spec:
+      containers:
+        - name: nginx
+          image: gcr.io/kubernetes-development-244305/nginx:latest
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: nginx-avi-lb-service
+spec:
+  selector:
+    app: nginx-avi-lb
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 80
+  type: LoadBalancer

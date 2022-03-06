@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-avi
+spec:
+  selector:
+    matchLabels:
+      app: nginx-avi
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: nginx-avi
+    spec:
+      containers:
+        - name: nginx
+          image: gcr.io/kubernetes-development-244305/nginx:latest
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: nginx-avi-service
+spec:
+  selector:
+    app: nginx-avi
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 80
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nginx-avi-ingress
+spec:
+  tls:
+    - secretName: nginx-cert-tls 
+      hosts:
+      - nginx-ssl.avi.tkg-vsp-lab.hyrulelab.com
+  rules:
+  - host: nginx-ssl.avi.tkg-vsp-lab.hyrulelab.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: nginx-avi-service
+            port:
+              number: 80
