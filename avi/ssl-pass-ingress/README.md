@@ -1,4 +1,4 @@
-# Deploy nginix pod and expose via L7 Ingress with TSL passthrough to the pod
+# Deploy nginix pod and expose via L7 Ingress with TLS passthrough to the pod
 
 This deployment assumes the following:
 - kubectl context pointing to existing k8s cluster

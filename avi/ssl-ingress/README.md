@@ -1,4 +1,4 @@
-# Deploy nginix pod and expose via L7 Ingress with TSL termination on NSX-ALB (AVI) side
+# Deploy nginix pod and expose via L7 Ingress with TLS termination on NSX-ALB (AVI) side
 
 This deployment assumes the following:
 - kubectl context pointing to existing k8s cluster
