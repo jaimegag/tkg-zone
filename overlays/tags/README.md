@@ -17,3 +17,7 @@ TAGS: "urn:vmomi:InventoryServiceTag:c7123c06-bb00-4fa6-a48b-b842778ff586:GLOBAL
 You can fetch the URN for your tags using `govc tags.info <tag-name>` or `govc tags.info -c <category-name>`
 
 Create your cluster as usual.
+
+# Troubleshooting
+
+If you run into a `401 Unauthorized` vCenter API error while adding the tags during the cluster creation, restart the CAPV controller to flush the local cache of sessions that CAPV maintain, that would fix the problem and allow this to work when you try to create the cluster again.
