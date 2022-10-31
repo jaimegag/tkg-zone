@@ -1,0 +1,16 @@
+#@ load("@ytt:overlay", "overlay")
+#@ load("@ytt:data", "data")
+#@ if data.values.IS_WINDOWS_WORKLOAD_CLUSTER and data.values.ZERO_SHORT_NODE_NAMES:
+
+#@overlay/match by=overlay.subset({"kind":"MachineDeployment", "metadata":{"name": data.values.CLUSTER_NAME + "-md-0-windows-containerd"}})
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: MachineDeployment
+metadata:
+  #@overlay/match
+  name: #@ "{}".format(data.values.CLUSTER_NAME)
+spec:
+  #@overlay/match
+  replicas: 0
+
+#@ end

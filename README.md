@@ -1,7 +1,11 @@
-# Configurations to deploy on TKG
+# TKG Zone
 
-[Deploy nginix pod and expose via L7 Ingress with TLS termination on NSX-ALB (AVI) side](/avi/ssl-ingress/README.md)
+This repository exists to capture helper tools, guides and configurations to be used with Tanzu Kubernetes Grid use-cases that are either more advanced in nature or just not explicitely covered in the [Official Documentation](https://docs.vmware.com/en/VMware-Tanzu-Kubernetes-Grid/index.html). It has been created and maintained by the VMware Tanzu field team.
 
-[Deploy nginix pod and expose via L7 Ingress with TLS passthrough to the pod](/avi/ssl-pass-ingress/README.md)
+Sincerely: a Tanzu Solution Engineer.
 
-[Deploy Windows Containers](/windows/README.md)
+Index of use cases:
+1. [Windows Containers advanced](/windows/README.md).
+2  [Windows basic sample apps](/windows/samples/README.md).
+3. [Ingress Samples with NSX-ALB (AVI)](/avi/README.md).
+4. [Custom tags for vSphere VMs](/overlays/tags/README.md).

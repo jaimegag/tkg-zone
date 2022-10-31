@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+ name: imagebuilder
+---
+apiVersion: v1
+kind: Service
+metadata:
+ name: imagebuilder-wrs
+ namespace: imagebuilder
+spec:
+ selector:
+   app: image-builder-resource-kit
+ type: NodePort
+ ports:
+ - port: 3000
+   targetPort: 3000
+   nodePort: 30008
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+ name: image-builder-resource-kit
+ namespace: imagebuilder
+spec:
+ selector:
+   matchLabels:
+     app: image-builder-resource-kit
+ template:
+   metadata:
+     labels:
+       app: image-builder-resource-kit
+   spec:
+     nodeSelector:
+       kubernetes.io/os: linux
+     containers:
+     - name: windows-imagebuilder-resourcekit
+       image: harbor.h2o-4-1056.h2o.vmware.com/tkg/windows-resource-bundle:v1.23.8_vmware.2-tkg.1
+       imagePullPolicy: Always
+       ports:
+         - containerPort: 3000
