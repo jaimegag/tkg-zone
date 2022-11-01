@@ -46,7 +46,7 @@ Make sure to edit the yaml to change the Harbor registry domain of the image to 
 
 ```bash
 kubectl config use-context mgmt-admin@mgmt
-kubectl apply -f windows/image/builder-airgapped.yaml
+kubectl apply -f ./windows/image/builder-airgapped.yaml
 # check pods are Running
 kubectl get pods -n imagebuilder
 ```
@@ -197,4 +197,4 @@ k get po -A
 
 ## 3. Deploy SMB CSI Driver
 
-## 4. Deploy vSphere CSI Driver
+Follow the [SMB CSI Driver setup guide](/smb-csi/README.md)

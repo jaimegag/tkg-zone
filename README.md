@@ -6,6 +6,7 @@ Sincerely: a Tanzu Solution Engineer.
 
 Index of use cases:
 1. [Windows Containers advanced](/windows/README.md).
-2  [Windows basic sample apps](/windows/samples/README.md).
-3. [Ingress Samples with NSX-ALB (AVI)](/avi/README.md).
-4. [Custom tags for vSphere VMs](/overlays/tags/README.md).
+2. [SMB CSI Driver setup](/smb-csi/README.md)
+3. [Windows basic sample apps](/windows/samples/README.md).
+4. [Ingress Samples with NSX-ALB (AVI)](/avi/README.md).
+5. [Custom tags for vSphere VMs](/overlays/tags/README.md).
