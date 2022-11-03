@@ -3,6 +3,7 @@
 This repo walks you through the steps to deploy and test the SMB CSI Driver, on both Linux and Windows nodes.
 
 It expects the `csi-proxy.exe` binary to be included in the Windows nodes running as a Windows Service. The [Windows](/windows/README.md) guide in this repo include these steps to get that binary in the Windows image.
+Additional insights and details on building the `csi-proxy.exe` binary can also be found [here](/smb-csi/BuildCSIProxy.md) in this repo.
 
 The guide assumes an air-gapped environnet and so images are relocated and yaml adjusted accordingly. If  your environment is not air-gapped ignore those steps.
 
