@@ -62,7 +62,7 @@ This lab will use the `yq` command. Pleae install it following instructions [her
 
 ### 3.1 Common Configuration for both Linux and Windows cluster
 
-Move to the folder where you cloned the upstream SMB CSI repo. Run this commands in all (Linux or Windows) clusters where you want to deploy the drivver.
+Move to the folder where you cloned the upstream SMB CSI repo. Run this commands in all (Linux or Windows) clusters where you want to deploy the driver.
 
 ```bash
 # RBAC
@@ -158,7 +158,7 @@ kubectl apply -f ./smb-csi/smb-csi-storage-class.yaml
 # Relocate image for nginx 
 skopeo copy --override-os linux docker://mcr.microsoft.com/oss/nginx/nginx:1.19.5 docker-archive:${SKOPEO_LOCAL_FOLDER}nginx-lin.tar
 skopeo copy docker-archive:${SKOPEO_LOCAL_FOLDER}nginx-lin.tar --dest-cert-dir=${SKOPEO_CERT_FOLDER} --dest-authfile=${SKOPEO_AUTH_FILE} docker://${SKOPEO_HARBOR_REGISTRY}/csi/nginx:1.19.5
-# Update ./k8s/csi/deployment-test-lin.yaml with the right image
+# Update ./smb-csi/deployment-test-lin.yaml with the right image
 export CSI_NGINX_IMAGE=$SKOPEO_HARBOR_REGISTRY/csi/nginx:1.19.5
 yq e -i 'select(.kind == "Deployment").spec.template.spec.containers[0].image = strenv(CSI_NGINX_IMAGE)' ./smb-csi/deployment-test-lin.yaml
 # Deploy Linux nginx
