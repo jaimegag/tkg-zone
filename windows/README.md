@@ -9,7 +9,7 @@ This Guides makes a few assumptions on the environment and tools available for t
 - Existing Linux jumpbox with internet connectivity, direct via special network interface or via proxy, with the following CLIs installed: Tanzu CLI v1.6.0 with all the Carvel tools included in the package, yq, kubeclt, and Docker Engine. Here's [a sample guide](https://github.com/Tanzu-Solutions-Engineering/tanzu-workstation-setup/blob/main/Linux.md) that can help with that setup.
 - Existing Standalone Harbor Registry in place in the same environment, or accessible from the environment. Here's [a sample guide](https://github.com/Tanzu-Solutions-Engineering/tanzu-workstation-setup/blob/main/Harbor.md) that can help with that setup.
 - Harbor Registry will have a Public `tkg` project.
-- Harbor CA cert stored in a local path in your jumpbox. In this guide it will be here: `~/data/ca.crt`.
+- Harbor CA cert stored in a local path in your jumpbox. In this guide it will be here: `/tmp/cacrtbase64d.crt`.
 - Existing Tanzu Kubernetes Grid v1.6.0 management cluster deployed on networks without internet access. Here is the [Official Documentation](https://docs.vmware.com/en/VMware-Tanzu-Kubernetes-Grid/1.6/vmware-tanzu-kubernetes-grid-16/GUID-mgmt-clusters-airgapped-environments.html) that can guide you to prepare that setup.
 
 ## 1. Create Windows Image
@@ -26,9 +26,13 @@ imgpkg copy -i mcr.microsoft.com/windows/servercore:ltsc2019 --to-repo harbor.h2
 imgpkg copy -i projects.registry.vmware.com/tkg/image-builder:v0.1.12_vmware.2 --to-repo harbor.h2o-4-1056.h2o.vmware.com/tkg/image-builder --registry-ca-cert-path /tmp/cacrtbase64d.crt
 
 ## For test apps
+
+## Create workspace folder
+mkdir -p ~/workspace/
+
 ## Using the skopeo commands (need installing skopeo binary: https://github.com/containers/skopeo) which enusres all layers of the image are copied to the registry
-skopeo copy --override-os windows --override-arch multiarch docker://mcr.microsoft.com/dotnet/framework/samples:aspnetapp-windowsservercore-ltsc2019 docker-archive:/home/jaime/workspace/tanzu-poc/k8s/aspnet/aspnet.tar
-skopeo copy docker-archive:/home/jaime/workspace/tanzu-poc/k8s/aspnet/aspnet.tar --dest-cert-dir="/tmp/" --dest-authfile="/home/jaime/.docker/config.json." docker://harbor.h2o-4-1056.h2o.vmware.com/tkg/aspnet:aspnetapp-windowsservercore-ltsc2019
+skopeo copy --override-os windows --override-arch multiarch docker://mcr.microsoft.com/dotnet/framework/samples:aspnetapp-windowsservercore-ltsc2019 docker-archive:/home/jaime/workspace/aspnet.tar
+skopeo copy docker-archive:/home/jaime/workspace/aspnet.tar --dest-cert-dir="/tmp/" --dest-authfile="/home/jaime/.docker/config.json." docker://harbor.h2o-4-1056.h2o.vmware.com/tkg/aspnet:aspnetapp-windowsservercore-ltsc2019
 # This would be the equivalent command with imgpkg but had some issues with it and that specific Windows Container image.
 # imgpkg copy -i mcr.microsoft.com/dotnet/framework/samples:aspnetapp-windowsservercore-ltsc2019 --to-repo harbor.h2o-4-1056.h2o.vmware.com/tkg/aspnet --registry-ca-cert-path /tmp/cacrtbase64d.crt --include-non-distributable-layers
 ```
@@ -108,7 +112,7 @@ Configure persistent Private Registry settings in the Tanzu CLI. This should hav
 ```bash
 # Replace these values with your Harbor FQDN/project and location of the Harbor CA cert respectively.
 export TKG_CUSTOM_IMAGE_REPOSITORY="harbor.h2o-4-1056.h2o.vmware.com/tkg"
-export TKG_CUSTOM_IMAGE_REPOSITORY_CA_CERTIFICATE=`base64 -w 0 ~/data/ca.crt`
+export TKG_CUSTOM_IMAGE_REPOSITORY_CA_CERTIFICATE=`base64 -w 0 /tmp/cacrtbase64d.crt`
 # CLI settings
 tanzu config set env.TKG_CUSTOM_IMAGE_REPOSITORY $TKG_CUSTOM_IMAGE_REPOSITORY
 tanzu config set env.TKG_CUSTOM_IMAGE_REPOSITORY_SKIP_TLS_VERIFY false
@@ -119,11 +123,11 @@ For Windows clusters you also need to inject the CA Cert via Ovelay. See below.
 
 ### 2.2 Prepare Cluster customizations
 
-To change the CP taint that prevents deploying pods into CP nodes, copy the `/windows/overlays/remove-cp-taints-overlay.yaml` and `/windows/overlays/remove-cp-taints-values.yaml` files into the `~/.config/tanzu/tkg/providers/ytt/03_customizations` folder.
+To change the CP taint that prevents deploying pods into CP nodes, copy the `./windows/overlays/remove-cp-taints-overlay.yaml` and `./windows/overlays/remove-cp-taints-values.yaml` files into the `~/.config/tanzu/tkg/providers/ytt/03_customizations` folder.
 
-If you want to configure the Windows node names to have 15 characters or less you should copy `/windows/overlays/windows-0shortnodenames-overlay.yaml` and `/windows/overlays/windows-0shortnodenames-values.yaml` files into the `~/.config/tanzu/tkg/providers/ytt/03_customizations` folder. This would facilitate deploying certain TKG add-ons and the integration with TMC.
+If you want to configure the Windows node names to have 15 characters or less you should copy `./windows/overlays/windows-0shortnodenames-overlay.yaml` and `./windows/overlays/windows-0shortnodenames-values.yaml` files into the `~/.config/tanzu/tkg/providers/ytt/03_customizations` folder. This would facilitate deploying certain TKG add-ons and the integration with TMC.
 
-If you are deploying Windows Clusters and using a Harbor registry wih self-signed certs you will also need to inject the CA Cert via Ovelay. Copy the `/windows/overlays/windows-inject-cert.yaml` and the `/windows/overlays/windows-inject-cert-values.yaml` into the `~/.config/tanzu/tkg/providers/ytt/03_customizations` folder.
+If you are deploying Windows Clusters and using a Harbor registry wih self-signed certs you will also need to inject the CA Cert via Ovelay. Copy the `./windows/overlays/windows-inject-cert-overlay.yaml` and the `./windows/overlays/windows-inject-cert-values.yaml` into the `~/.config/tanzu/tkg/providers/ytt/03_customizations` folder.
 
 To start the CSI Proxy as a Windows service in the Windows nodes you need to edit the `~/.config/tanzu/tkg/providers/infrastructure-vsphere/v1.3.1/ytt/overlay-windows.yaml` file:
 ```bash
@@ -169,16 +173,17 @@ REMOVE_CP_TAINT: "true"
 
 ### 2.4 Deploy Windows Cluster
 
-Move to the folder where you created the `win1-cluster-config.yaml` file.
-
 If you want to deploy a Windows cluster ensuring the shortest node name (cluster-name+6_char_hash) then use this script call, chainging the last parameter to the number of worker nodes you desire:
 ```bash
 # Edit worker nodes in your cluster config to 0 and set flag to true
 WORKER_MACHINE_COUNT: 0
 ZERO_SHORT_NODE_NAMES: "true"
 
-# Deploy with this script. The third parameter is the actal number of nodes you want to have
-/windows/create_windows_cluster_shortnodename.sh "win1" "win1-cluster-config.yaml" 2
+# Deploy with this script.
+## - The first parameter is the name of the cluster
+## - The second parameter is the path and name of the "win1-cluster-config.yaml" file you created in the previous step.
+## - The third parameter is the actal number of nodes you want to have
+./windows/scripts/create_windows_cluster_shortnodename.sh "win1" "/home/jaime/workspace/win1-cluster-config.yaml" 2
 ```
 
 Otherwise follow these steps:
@@ -193,6 +198,34 @@ Validate admin access to windows cluster
 tanzu cluster kubeconfig get win1 --admin
 kubectl config use-context win1-admin@win1
 k get po -A
+```
+
+#### 2.5 Check CSI Proxy is running
+
+If you added the `csi-proxy.exe` binary and started it as a Windows Service, check it is running:
+```bash
+# SSH into a Windows node with the ssh key you created
+ssh -i ./tkg-ssh-pub capv@192.168.14.33
+#
+# Check that the csi-proxy is running as a Windows Service
+PS C:\Users\capv> Get-Process *csi-proxy*
+# Output should look like this:
+# Handles  NPM(K)    PM(K)      WS(K)     CPU(s)     Id  SI ProcessName
+# -------  ------    -----      -----     ------     --  -- -----------
+#     145      11    17080      11012       0.83   1832   0 csi-proxy
+#
+# Confirm location of the csi-proxy exe file and log
+PS C:\Users\capv> cd c:\programdata\temp
+PS C:\programdata\temp> dir
+# Output should look like this:
+#     Directory: C:\programdata\temp
+#  
+# Mode                LastWriteTime         Length Name
+# ----                -------------         ------ ----
+# -a----         5/3/2022   4:06 AM      101237035 antrea-windows-advanced.zip
+# -a----         5/3/2022   4:08 AM       14243840 csi-proxy.exe
+# -a----         5/3/2022   3:24 PM           1017 csi-proxy.log
+# -a----         5/3/2022   4:07 AM       48570088 kube-proxy.exe
 ```
 
 ## 3. Deploy SMB CSI Driver

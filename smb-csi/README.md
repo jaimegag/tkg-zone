@@ -2,7 +2,7 @@
 
 This repo walks you through the steps to deploy and test the SMB CSI Driver, on both Linux and Windows nodes.
 
-It expects the `csi-proxy.exe` binary to be included in the Windows nodes running as a Windows Service. The the [Windows](/windows/README.md) guide in this repo include these steps to get that binary in the Windows image.
+It expects the `csi-proxy.exe` binary to be included in the Windows nodes running as a Windows Service. The [Windows](/windows/README.md) guide in this repo include these steps to get that binary in the Windows image.
 
 The guide assumes an air-gapped environnet and so images are relocated and yaml adjusted accordingly. If  your environment is not air-gapped ignore those steps.
 
@@ -30,7 +30,7 @@ export SKOPEO_CERT_FOLDER="/tmp"
 export SKOPEO_HARBOR_REGISTRY="harbor.h2o-4-1056.h2o.vmware.com"
 
 # Linux
-# registry.k8s.io/sig-storage/csi-provisioner:v3.2.0
+# csi-provisioner:v3.2.0
 skopeo copy --override-os linux docker://registry.k8s.io/sig-storage/csi-provisioner:v3.2.0 docker-archive:${SKOPEO_LOCAL_FOLDER}csi-provisioner-lin.tar
 skopeo copy docker-archive:${SKOPEO_LOCAL_FOLDER}csi-provisioner-lin.tar --dest-cert-dir=${SKOPEO_CERT_FOLDER} --dest-authfile=${SKOPEO_AUTH_FILE} docker://${SKOPEO_HARBOR_REGISTRY}/csi/csi-provisioner:v3.2.0
 # livenessprobe:v2.7.0
@@ -136,7 +136,7 @@ skopeo copy --override-os linux docker://andyzhangx/samba:win-fix docker-archive
 skopeo copy docker-archive:${SKOPEO_LOCAL_FOLDER}samba-server.tar --dest-cert-dir=${SKOPEO_CERT_FOLDER} --dest-authfile=${SKOPEO_AUTH_FILE} docker://${SKOPEO_HARBOR_REGISTRY}/csi/samba-server:win-fix
 # Update ./deploy/example/smb-provisioner/smb-server-lb.yaml with the right image
 export CSI_SMB_SERVER_IMAGE=$SKOPEO_HARBOR_REGISTRY/csi/samba-server:win-fix
-yq e -i '.spec.template.spec.containers[0].image = strenv(CSI_SMB_SERVER_IMAGE)' ./deploy/example/smb-provisioner/smb-server-lb.yaml
+yq e -i 'select(.kind == "Deployment").spec.template.spec.containers[0].image = strenv(CSI_SMB_SERVER_IMAGE)' ./deploy/example/smb-provisioner/smb-server-lb.yaml
 # Deploy SMB Server
 kubectl apply -f ./deploy/example/smb-provisioner/smb-server-lb.yaml
 # Get the VIP from the server to use it in the test of the next section
@@ -159,7 +159,7 @@ skopeo copy --override-os linux docker://mcr.microsoft.com/oss/nginx/nginx:1.19.
 skopeo copy docker-archive:${SKOPEO_LOCAL_FOLDER}nginx-lin.tar --dest-cert-dir=${SKOPEO_CERT_FOLDER} --dest-authfile=${SKOPEO_AUTH_FILE} docker://${SKOPEO_HARBOR_REGISTRY}/csi/nginx:1.19.5
 # Update ./k8s/csi/deployment-test-lin.yaml with the right image
 export CSI_NGINX_IMAGE=$SKOPEO_HARBOR_REGISTRY/csi/nginx:1.19.5
-yq e -i '.spec.template.spec.containers[0].image = strenv(CSI_NGINX_IMAGE)' ./smb-csi/deployment-test-lin.yaml
+yq e -i 'select(.kind == "Deployment").spec.template.spec.containers[0].image = strenv(CSI_NGINX_IMAGE)' ./smb-csi/deployment-test-lin.yaml
 # Deploy Linux nginx
 kubectl apply -f ./smb-csi/deployment-test-lin.yaml
 # Check the name of the volumne of the PVC created (e.g: pvc-aa7da6a2-4d78-4262-a940-8781c8f9982a)
@@ -185,6 +185,9 @@ We will use a storage class and deployment yaml from this repo. Change directory
 # Switch context to Windows cluster. Example (adjust to your context):
 kubectl config use-context win1-admin@win1
 
+# Create secret
+kubectl create secret generic smbcreds --from-literal username=smbadmin --from-literal password="gonative"
+
 # Deploy storage class
 # Edit the ./smb-csi/smb-csi-storage-class.yaml file
 #    Change parameters.source to use the IP of the SMB Server you created in the previous step
@@ -196,7 +199,7 @@ skopeo copy --override-os windows docker://e2eteam/busybox:1.29 docker-archive:$
 skopeo copy docker-archive:${SKOPEO_LOCAL_FOLDER}busybox-win.tar --dest-cert-dir=${SKOPEO_CERT_FOLDER} --dest-authfile=${SKOPEO_AUTH_FILE} docker://${SKOPEO_HARBOR_REGISTRY}/csi/busybox:v1.29-win
 # Update ./smb-csi/deployment-test-win.yaml with the right image
 export CSI_BUSYBOX_WIN_IMAGE=$SKOPEO_HARBOR_REGISTRY/csi/busybox:v1.29-win
-yq e -i '.spec.template.spec.containers[0].image = strenv(CSI_BUSYBOX_WIN_IMAGE)' ./smb-csi/deployment-test-win.yaml
+yq e -i 'select(.kind == "Deployment").spec.template.spec.containers[0].image = strenv(CSI_BUSYBOX_WIN_IMAGE)' ./smb-csi/deployment-test-win.yaml
 # Deploy Win busybox
 kubectl apply -f ./smb-csi/deployment-test-win.yaml
 # Check the name of the volumne of the PVC created (e.g: pvc-aa7da6a2-4d78-4262-a940-8781c8f9982a)
