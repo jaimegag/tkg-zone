@@ -1,6 +1,6 @@
 # Windows Containers advanced
 
-This guide is focused on the Platform Operator persona that owns and has admin access to a Tanzu Kubernetes Grid environment on vSphere. This guide will help the Platform Operator to create a Windows base image, use it to create a TKG cluster with (short-named) Windows nodes, and deploy CSI Drivers(s) in it; all in an environment without internet connectivity (a.k.a air-gapped).
+This guide is focused on the Platform Operator persona that owns and has admin access to a Tanzu Kubernetes Grid environment on vSphere. This guide will help the Platform Operator to create a Windows base image, use it to create a TKG cluster with (short-named) Windows nodes, deploy the SMB CSI Drivers in it, and deploy the Prometheus Windows Exporter as well; all in an environment without internet connectivity (a.k.a air-gapped).
 
 ## 0. Pre-requisites
 
@@ -232,3 +232,7 @@ PS C:\programdata\temp> dir
 ## 3. Deploy SMB CSI Driver
 
 Follow the [SMB CSI Driver setup guide](/smb-csi/README.md)
+
+## 4. Deploy Prometheus Windows Exporter
+
+Follow the [Prometheus Windows Exporter setup guide](/windows/metrics/README.md)
