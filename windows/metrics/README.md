@@ -60,10 +60,41 @@ kubectl get po -n monitoring
 
 ## 3. Test Windows Exporter metrics
 
-Test accessing the metrics endpoint directly
+### 3.1 Test accessing the metrics endpoint directly
 ```bash
 # Test windows exporter is publising metrics on port 9182
 kubectl get no -owide
 # Check the /metrics endpoint of any windows node
 curl -v http://<windows-node-ip>:9182/metrics
 ```
+
+### 3.2 Test scraping metrics from Prometheus Server
+
+
+Assuming you have a Prometheus Server available you can add a simple `scrape_config` job to the Prometheus Server configuration to collect the metrics exposed on the Windows Exporter of every Windows node. Example:
+```bash
+    - job_name: 'windows-node-exporter'
+      metrics_path: /metrics
+      static_configs:
+      - targets:
+        - '10.220.52.46:9182'
+        - '10.220.52.51:9182'
+```
+
+If your Prometheus Server has been deployed with the Prometheus TKG Package, then you need to create an overlay to annotate the PackageInstall with it. We have included a sample `.windows/metrics/prometheus-overlay.yaml` in this repo that you can use for that. Replace the IPs in lines 34 and 35 in that yaml file with the IPs of your Windows Nodes (add all of them). Then you can run the following commands:
+```bash
+# Change context to the Linux cluster where you have the Prometheus Server
+kubectl config use-context lin1-admin@lin1
+# Change directory to the local foler of the Prometheus Overlay
+cd .windows/metrics/
+# Create Secret with the Overlay yaml
+kubectl create secret generic prometheus-overlay --from-file=prometheus-overlay.yaml -n tanzu-user-managed-packages
+# Annotate the Prometheus Pakcage with the overlay config
+kubectl annotate PackageInstall prometheus ext.packaging.carvel.dev/ytt-paths-from-secret-name.0=prometheus-overlay -n tanzu-user-managed-packages
+# This should force the Package to reconcyle and start scraping the Windows exporter metrics endpoints
+```
+
+Test the metrics are there:
+- If you have Grafana connected to the Prometheus Server you should find the metrics already available. Query for any `windows*` metric.
+- Alternatively you can check directly via the Prometheus UI. Either exposing the `prometheus-server` Service (NodePort or LoadBalancer) or via proxy server. Here's a screenshot of how the metrics queried from the Prometheus Server UI: ![prometheus-metrics-ui](/windows/metrics/prometheus-metrics-ui.png)
+
