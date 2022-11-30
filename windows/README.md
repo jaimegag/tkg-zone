@@ -130,6 +130,8 @@ If you want to configure the Windows node names to have 15 characters or less yo
 
 If you are deploying Windows Clusters and using a Harbor registry wih self-signed certs you will also need to inject the CA Cert via Ovelay. Copy the `./windows/overlays/windows-inject-cert-overlay.yaml` and the `./windows/overlays/windows-inject-cert-values.yaml` into the `~/.config/tanzu/tkg/providers/ytt/03_customizations` folder.
 
+If you need the vSphere CSI Driver to work for the control-plane nodes as required in the [metrics lab](/windows/metrics/README.md) in this repo, you need to edit this file: `~/.config/tanzu/tkg/providers/ytt/02_addons/csi/csi_secret.yaml`, and remove this part from the `if` statement on row 6: `and not data.values.IS_WINDOWS_WORKLOAD_CLUSTER`. That will allow the vSphere CSI Driver Package to be installed (for Linux nodes only).
+
 To start the CSI Proxy as a Windows service in the Windows nodes you need to edit the `~/.config/tanzu/tkg/providers/infrastructure-vsphere/v1.3.1/ytt/overlay-windows.yaml` file:
 ```bash
 # Add the following code after row 408 (after the Start Services block). include 10 spaces at the beginning of each row for the right indentation

@@ -13,6 +13,10 @@ spec:
     metadata:
       labels:
         app: windows-exporter
+      annotations:
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "9182"
+        prometheus.io/scrape: "true"
     spec:
       securityContext:
         windowsOptions:
