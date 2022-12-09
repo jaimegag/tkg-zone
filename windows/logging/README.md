@@ -1,8 +1,8 @@
-# Prometheus Windows Exporter setup
+# Fluent-Bit Logging setup
 
 This guide walks you through the steps to deploy and test Fluent-Bit on Windows nodes, and connect it to a ElasticSearch+Kibana comonent running in the Linux cluster.
 
-The Fluent Bit configuration has been influenced from several sources [1](https://aws.amazon.com/blogs/containers/centralized-logging-for-windows-containers-on-amazon-eks-using-fluent-bit/)[2](https://docs.vmware.com/en/VMware-Tanzu-Kubernetes-Grid-Integrated-Edition/1.15/tkgi/GUID-windows-logging.html#configure-fluent-bit-6)[3](https://docs.fluentbit.io/manual/installation/kubernetes#windows-deployment), plus includes a few filters and Lua scripts to improve the log parsing. Credit to `Itay Talmi`.
+The Fluent-Bit configuration has been influenced from several sources [1](https://aws.amazon.com/blogs/containers/centralized-logging-for-windows-containers-on-amazon-eks-using-fluent-bit/)[2](https://docs.vmware.com/en/VMware-Tanzu-Kubernetes-Grid-Integrated-Edition/1.15/tkgi/GUID-windows-logging.html#configure-fluent-bit-6)[3](https://docs.fluentbit.io/manual/installation/kubernetes#windows-deployment), plus includes a few filters and Lua scripts to improve the log parsing. Credit to `Itay Talmi`.
 
 The ElasticSearch and Kibana configuration has been reused from the TKG-Lab repository [here](https://github.com/Tanzu-Solutions-Engineering/tkg-lab/blob/main/docs/shared-services-cluster/06_ek_ssc.md). Simplified to use service of type LB instead of Ingress.
 
@@ -80,7 +80,7 @@ kubectl get all -n elasticsearch-kibana
 # statefulset.apps/elasticsearch   1/1     3d
 ```
 
-# 3. Deploy FluentBit
+# 3. Deploy Fluent-Bit
 
 Edit `/windows/logging/fb-win.yaml` and change the ES host in the OUTPUT section of the ConfigMAp (line 64): Use the ElasticSearch IP you got in the previous section of this guide. Optionally adjust the FILTER in row 98 to your cluster needs. Then run these commands:
 ```bash

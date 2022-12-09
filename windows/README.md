@@ -1,6 +1,6 @@
 # Windows Containers advanced
 
-This guide is focused on the Platform Operator persona that owns and has admin access to a Tanzu Kubernetes Grid environment on vSphere. This guide will help the Platform Operator to create a Windows base image, use it to create a TKG cluster with (short-named) Windows nodes, deploy the SMB CSI Drivers in it, and deploy the Prometheus Windows Exporter as well; all in an environment without internet connectivity (a.k.a air-gapped).
+This guide is focused on the Platform Operator persona that owns and has admin access to a Tanzu Kubernetes Grid environment on vSphere. This guide will help the Platform Operator to create a Windows base image, use it to create a TKG cluster with (short-named) Windows nodes, deploy the SMB CSI Drivers in it, deploy the Prometheus Windows Exporter and deploy Fluent-Bit as well; all in an environment without internet connectivity (a.k.a air-gapped).
 
 ## 0. Pre-requisites
 
@@ -241,7 +241,11 @@ Follow the [SMB CSI Driver setup guide](/smb-csi/README.md)
 
 Follow the [Prometheus Windows Exporter setup guide](/windows/metrics/README.md)
 
-## 5. Deploy SecretGen Controller
+## 5. Deploy FluentBit
+
+Follow the [Fluent-Bit setup guide](/windows/logging/README.md)
+
+## 6. Deploy SecretGen Controller
 
 Only if you did not deploy the `secretgen-controller` Package as a core add-on during the deployment of the Windows cluster as described [here](/windows/README.md#22-prepare-cluster-customizations) you can try to deploy it as a Package now following these steps:
 ```bash
