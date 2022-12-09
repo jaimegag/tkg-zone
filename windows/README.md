@@ -132,6 +132,8 @@ If you are deploying Windows Clusters and using a Harbor registry wih self-signe
 
 If you need the vSphere CSI Driver to work for the control-plane nodes as required in the [metrics lab](/windows/metrics/README.md) in this repo, you need to edit this file: `~/.config/tanzu/tkg/providers/ytt/02_addons/csi/csi_secret.yaml`, and remove this part from the `if` statement on row 6: `and not data.values.IS_WINDOWS_WORKLOAD_CLUSTER`. That will allow the vSphere CSI Driver Package to be installed (for Linux nodes only).
 
+If you want the `secretgen-controller` Package to be installed as a core add-pn, you need to edit this file: `~/.config/tanzu/tkg/providers/ytt/02_addons/secretgen-controller/add_secretgen-controller.yaml`, and remove this part from the `if` statement on row 7: `and not data.values.IS_WINDOWS_WORKLOAD_CLUSTER`. That will allow the Package to be installed (running in the control-plane nodes).
+
 To start the CSI Proxy as a Windows service in the Windows nodes you need to edit the `~/.config/tanzu/tkg/providers/infrastructure-vsphere/v1.3.1/ytt/overlay-windows.yaml` file:
 ```bash
 # Add the following code after row 408 (after the Start Services block). include 10 spaces at the beginning of each row for the right indentation
@@ -238,3 +240,26 @@ Follow the [SMB CSI Driver setup guide](/smb-csi/README.md)
 ## 4. Deploy Prometheus Windows Exporter
 
 Follow the [Prometheus Windows Exporter setup guide](/windows/metrics/README.md)
+
+## 5. Deploy SecretGen Controller
+
+Only if you did not deploy the `secretgen-controller` Package as a core add-on during the deployment of the Windows cluster as described [here](/windows/README.md#22-prepare-cluster-customizations) you can try to deploy it as a Package now following these steps:
+```bash
+# Deploy Package
+tanzu package install secretgen-controller \
+   -p secretgen-controller.tanzu.vmware.com \
+   -v 0.9.1+vmware.1-tkg.1
+   -n tkg-system
+   -f ./windows/overlays/secretgen_values.yml
+# Check Package is deployed and controller is running
+k get all -n tanzu-system
+# It should look like this
+# NAME                                        READY   STATUS    RESTARTS   AGE
+# pod/secretgen-controller-5d9f7bd8db-n9vhn   1/1     Running   0          15m
+
+# NAME                                   READY   UP-TO-DATE   AVAILABLE   AGE
+# deployment.apps/secretgen-controller   1/1     1            1           15m
+
+# NAME                                              DESIRED   CURRENT   READY   AGE
+# replicaset.apps/secretgen-controller-5d9f7bd8db   1         1         1       15m
+```
