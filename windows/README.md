@@ -243,7 +243,7 @@ Follow the [Prometheus Windows Exporter setup guide](/windows/metrics/README.md)
 
 ## 5. Deploy FluentBit
 
-Follow the [Fluent-Bit setup guide](/windows/logging/README.md)
+Follow the [Fluent-Bit Logging setup guide](/windows/logging/README.md)
 
 ## 6. Deploy SecretGen Controller
 
