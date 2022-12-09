@@ -1,0 +1,240 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: logging
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: fluent-bit
+  namespace: logging
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: fluent-bit-windows-role
+  namespace: logging
+rules:
+  - nonResourceURLs:
+      - /metrics
+    verbs:
+      - get
+  - apiGroups: [""]
+    resources:
+      - namespaces
+      - pods
+      - pods/logs
+      - nodes
+      - nodes/proxy
+    verbs: ["get", "list", "watch"]
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: fluent-bit-windows-role-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: fluent-bit-windows-role
+subjects:
+- kind: ServiceAccount
+  name: fluent-bit
+  namespace: logging
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluent-bit-windows-config
+  namespace: logging
+  labels:
+    app: fluent-bit-windows
+data:
+  fluent-bit.conf: |
+    [SERVICE]
+        Flush                       5
+        Log_Level                   info
+        Daemon                      off
+        net.dns.resolver            LEGACY
+        Parsers_File                parsers.conf
+    @INCLUDE application-log.conf
+  application-log.conf: |
+    [OUTPUT]
+        Name                  es
+        Match                 *
+        Host                  10.220.52.26
+        Port                  9200
+        Logstash_Format       On
+        Logstash_Prefix_Key   es_index
+        Time_Key              @timestamp
+        Time_Key_Format       %Y-%m-%dT%H:%M:%S
+        Generate_ID           On
+        Replace_Dots          On
+        Retry_Limit           False
+        tls                   Off
+        tls.verify            Off
+        Suppress_Type_Name    On
+        Include_Tag_Key       On
+        Buffer_Size           False
+        Trace_Error           True
+
+    [INPUT]
+        Name                tail
+        Tag                 application.*
+        Exclude_Path        C:\\var\\log\\containers\\fluent-bit*
+        Path                C:\\var\\log\\containers\\*.log
+        Docker_Mode         On
+        Docker_Mode_Flush   5
+        Docker_Mode_Parser  container_firstline
+        Parser              docker
+        DB                  C:\\var\\fluent-bit\\state\\flb_container.db
+
+    [INPUT]
+        Name                tail
+        Tag                 application.*
+        Path                C:\\var\\log\\containers\\fluent-bit*
+        Parser              docker
+        DB                  C:\\var\\fluent-bit\\state\\flb_log.db
+
+    [FILTER]
+        Name                  record_modifier
+        Match                 *
+        Record                tkg_instance mgmt-1
+        Record                tkg_cluster win1
+        Record                env non-prod
+
+    [FILTER]
+        Name                kubernetes
+        Match               application.*
+        Kube_URL            https://kubernetes.default.svc.cluster.local:443
+        Kube_Tag_Prefix     application.C.var.log.container.
+        Merge_Log           On
+        Merge_Log_Key       log_processed
+        K8S-Logging.Parser  On
+        K8S-Logging.Exclude On
+        Labels              Off
+        Annotations         Off
+        Use_Kubelet         Off
+        Buffer_Size         0
+
+    [FILTER]
+        Name                  modify
+        Match                 application.*
+        Copy                  kubernetes k8s
+
+    [FILTER]
+        Name                  nest
+        Match                 application.*
+        Operation             lift
+        Nested_Under          kubernetes
+
+    [FILTER]
+        Name                  nest
+        Match                 application.*
+        Operation             nest
+        Wildcard              tkg_instance*
+        Nest_Under            tkg
+
+    [FILTER]
+        Name                  lua
+        Match                 *
+        script                generate_es_index_name.lua
+        call                  generate_es_index
+  parsers.conf: |
+    [PARSER]
+        Name                docker
+        Format              json
+        Time_Key            time
+        Time_Format         %Y-%m-%dT%H:%M:%S.%LZ
+
+    [PARSER]
+        Name                container_firstline
+        Format              regex
+        Regex               (?<log>(?<="log":")\S(?!\.).*?)(?<!\\)".*(?<stream>(?<="stream":").*?)".*(?<time>\d{4}-\d{1,2}-\d{1,2}T\d{2}:\d{2}:\d{2}\.\w*).*(?=})
+        Time_Key            time
+        Time_Format         %Y-%m-%dT%H:%M:%S.%LZ
+
+    [PARSER]
+        Name    kube-custom
+        Format  regex
+        Regex   (?<tag>[^.]+)?\.?(?<pod_name>[a-z0-9](?:[-a-z0-9]*[a-z0-9])?(?:\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)_(?<namespace_name>[^_]+)_(?<container_name>.+)-(?<docker_id>[a-z0-9]{64})\.log$
+  generate_es_index_name.lua: |
+    function generate_es_index(tag, timestamp, record)
+        new_record = record
+
+        if (record["tkg_cluster"] ~= nil) then
+            es_index = "k8s-syslog" .. "_" .. record["tkg_cluster"]
+        end
+
+        if (record["k8s"] ~= nil) then
+            kube = record["k8s"]
+            if (kube["namespace_name"] ~= nil and string.len(kube["namespace_name"]) > 0) then
+                es_index = es_index .. "_" .. kube["namespace_name"]
+            end
+        end
+
+        new_record["es_index"] =  es_index
+
+        return 1, timestamp, new_record
+    end
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: fluent-bit-windows
+  namespace: logging
+  labels:
+    app: fluent-bit-windows
+    version: v1
+spec:
+  selector:
+    matchLabels:
+      app: fluent-bit-windows
+  template:
+    metadata:
+      labels:
+        app: fluent-bit-windows
+        version: v1
+    spec:
+      containers:
+      - name: fluent-bit-windows
+        image: harbor.h2o-4-1056.h2o.vmware.com/tkg/fluent-bit:windows-2019-2.0.6
+        resources:
+          limits:
+            memory: 600Mi
+          requests:
+            cpu: 500m
+            memory: 600Mi
+        volumeMounts:
+        - name: fluentbitstate
+          mountPath: C:\var\fluent-bit\state
+        - name: varlog
+          mountPath: C:\var\log
+          readOnly: true
+        - name: varlibdockercontainers
+          mountPath: C:\ProgramData\docker\containers
+          readOnly: true
+        - name: fluent-bit-config
+          mountPath: C:\fluent-bit\etc\
+          readOnly: true
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - name: fluentbitstate
+        hostPath:
+          path: C:\var
+      - name: varlog
+        hostPath:
+          path: C:\var\log
+      - name: varlibdockercontainers
+        hostPath:
+          path: C:\ProgramData\docker\containers
+      - name: fluent-bit-config
+        configMap:
+          name: fluent-bit-windows-config
+      nodeSelector:
+        kubernetes.io/os: windows
+      serviceAccountName: fluent-bit
+      tolerations:
+        - value: windows
+          key: os
+          operator: Equal
+          effect: NoSchedule

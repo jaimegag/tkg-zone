@@ -1,0 +1,44 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: kibana
+  namespace: elasticsearch-kibana
+  labels:
+    app: kibana
+spec:
+  ports:
+  - port: 5601
+  selector:
+    app: kibana
+  type: LoadBalancer
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kibana
+  namespace: elasticsearch-kibana
+  labels:
+    app: kibana
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kibana
+  template:
+    metadata:
+      labels:
+        app: kibana
+    spec:
+      containers:
+      - name: kibana
+        image: harbor.h2o-4-1056.h2o.vmware.com/tkg/kibana:7.2.1
+        resources:
+          limits:
+            cpu: 1000m
+          requests:
+            cpu: 100m
+        env:
+        - name: ELASTICSEARCH_URL
+          value: http://10.220.52.26:9200
+        ports:
+        - containerPort: 5601
