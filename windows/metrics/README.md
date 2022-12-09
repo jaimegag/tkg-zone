@@ -9,6 +9,8 @@ The guide assumes an air-gapped environment and so images are relocated and yaml
 
 ## 1. Relocate Container Images
 
+For simplicity we will reuse the existing `tkg` project in the Harbor registry.
+
 Relocate images: adjust the below commands accordingly to your Harbor Registry FQDN, location of Harbor Cert file and location of the docker authfile in your jumpbox.
 ```bash
 mkdir -p ~/workspace/metrics
