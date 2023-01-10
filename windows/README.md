@@ -134,6 +134,8 @@ If you need the vSphere CSI Driver to work for the control-plane nodes as requir
 
 If you want the `secretgen-controller` Package to be installed as a core add-pn, you need to edit this file: `~/.config/tanzu/tkg/providers/ytt/02_addons/secretgen-controller/add_secretgen-controller.yaml`, and remove this part from the `if` statement on row 7: `and not data.values.IS_WINDOWS_WORKLOAD_CLUSTER`. That will allow the Package to be installed (running in the control-plane nodes).
 
+If you want to enable Cluster Autoscaler in Windows clusters you need to copy this filr from the repo `./windows/overlays/autoscaler_overlay.yaml` in this folder (overwriting the existing file): `~/.config/tanzu/tkg/providers/ytt/03_customizations/autoscaler/`.
+
 To start the CSI Proxy as a Windows service in the Windows nodes you need to edit the `~/.config/tanzu/tkg/providers/infrastructure-vsphere/v1.3.1/ytt/overlay-windows.yaml` file:
 ```bash
 # Add the following code after row 408 (after the Start Services block). include 10 spaces at the beginning of each row for the right indentation
@@ -163,8 +165,7 @@ VSPHERE_CONTROL_PLANE_MEM_MIB: "16384"
 VSPHERE_CONTROL_PLANE_NUM_CPUS: "4"
 OS_NAME: ubuntu
 OS_VERSION: 2004
-ENABLE_MHC: false
-```
+```bash
 - Update `CLUSTER_NAME` with a suitable name for your Windows Cluster. In this guide we use `win1`
 - Update `VSPHERE_CONTROL_PLANE_ENDPOINT` to one of the NSX-ALB (AVI) VIPs avaiable in the pool or leave empty for it to be auto-asigned
 - Add `WORKER_MACHINE_COUNT` with the number of worker nodes you want for the Windows cluster
@@ -174,6 +175,17 @@ ENABLE_MHC: false
 IS_WINDOWS_WORKLOAD_CLUSTER: "true"
 VSPHERE_WINDOWS_TEMPLATE: windows-2019-kube-v1.23.8
 REMOVE_CP_TAINT: "true"
+```
+- Optionally add/edit these properties as desired:
+```bash
+# Enable MHC
+ENABLE_MHC: true
+# Enable Autoscaler (you need the autosaler_overlay.yaml updated as detailed in the section 2.2 above)
+AUTOSCALER_ENABLED: "true"
+AUTOSCALER_MIN_SIZE_0: 2
+AUTOSCALER_MAX_SIZE_0: 4
+# Enable Audit logs
+ENABLE_AUDIT_LOGGING: "true"
 ```
 
 ### 2.4 Deploy Windows Cluster
