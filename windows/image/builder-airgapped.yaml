@@ -35,7 +35,7 @@ spec:
        kubernetes.io/os: linux
      containers:
      - name: windows-imagebuilder-resourcekit
-       image: harbor.h2o-4-1056.h2o.vmware.com/tkg/windows-resource-bundle:v1.23.8_vmware.2-tkg.1
+       image: harbor.h2o-4-1056.h2o.vmware.com/tkg/windows-resource-bundle:v1.24.10_vmware.1-tkg.2
        imagePullPolicy: Always
        ports:
          - containerPort: 3000
