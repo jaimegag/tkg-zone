@@ -8,6 +8,7 @@
     "cluster": "VSPHERE-CLUSTER-NAME",
     "containerd_sha256_windows": "d29f5276584e869a5933db668fd6f17b7417c48ac04dd1c2a2c7f412f948f89c",
     "containerd_url": "http://CONTROLPLANE-IP:30008/files/containerd/cri-containerd-v1.6.6+vmware.3.windows-amd64.tar",
+    "containerd_version": "v1.6.6",
     "convert_to_template": "true",
     "create_snapshot": "false",
     "datacenter": "DATACENTER-NAME",

@@ -91,16 +91,17 @@ set -m; nohup python3 -m http.server --directory winres > /dev/null 2>&1 &
 
 ### 1.5 Create Configuration for Windows Image
 
-Edit the `~/workspace/tanzu-poc/windows/windows-airgapped.json` file and change the following fields:
+Edit the `~/workspace/tkg-zone/windows/image/windows-airgapped.json` file and change the following fields:
 - unattend_timezone: < your vcenter environment timezone> # hint: use `tzutil /l` on Windows to get a list of the supported timezone values, or check https://www.windowsafg.com/win10x86_x64_uefi.html
 - password: < your vCenter password >
 - username: < your vCenter username >
 - datastore: < your vCenter datastore >
 - datacenter: < your vCenter datacenter >
 - cluster: < your vCenter cluster >
+- folder: < your vCenter folder where to put the resulting template >
 - debug_tools: < make sure this is set to false otherwise it will fail downloading these tools in an offline environment >
 - vmtools_iso_path < your datastore iso path and vmware-tools iso name you uploaded earlier in this guide >
-- network: < a vCenter portgroup/network available >
+- network: < a vCenter portgroup/network available with DHCP enabled >
 - os_iso_path: < your datastore iso path and windows-image iso name you uploaded earlier in this guide >
 - vcenter_server: < your vCenter IP or FQDN >
 - kubernetes_base_url, containerd_url, additional_executables_list, wins_url, cloudbase_init_url, nssm_url, goss_url, additional_executables_list: < change IP to the IP of one of the Control Plane nodes in your management cluster >
@@ -170,7 +171,7 @@ vi tkg-vsphere-default-multios-ag-cc.yaml
 # Use the repo's /windows/cluster/cc-win-antrea-cleanup-overlay.yaml overlay to fix/clean Antrea configuration after reboots
 # and apply the ClusterClass in the MC:
 ytt -f tkg-vsphere-default-multios-ag-cc.yaml -f cc-win-cacert-overlay.yaml -f cc-win-remove-mhc-overlay.yaml -f cc-win-antrea-cleanup-overlay.yaml | kubectl apply -f -
-# Edit the ./windows/cluster-overlay.yaml file and replace the Certificate with the one from your Harbor registry
+# Edit the ./windows/cluster-overlay.yaml file and replace the Certificate with the one from your Harbor registry, which is located in `~/workspace/harbor-cacrt.crt`
 vi cluster-overlay.yaml
 ```
 
@@ -231,7 +232,7 @@ cd ~/workspace/tkg-zone/windows/cluster/
 # Create classy config file
 tanzu cluster create multios --file multios-cluster-config.yaml --dry-run > multios-classy-cluster-config.yaml
 
-# Apply overfly to add Linux machineDeployment and variable to inject Harbor CA cert (if you added it earlier to the overlay). The result is a classy config file to create a MultiOS cluster that can pull images for our insecure Harbor registry.
+# Apply overlay to add Linux machineDeployment and variable to inject Harbor CA cert (if you added it earlier to the overlay). The result is a classy config file to create a MultiOS cluster that can pull images for our insecure Harbor registry.
 ytt -f multios-classy-cluster-config.yaml -f cluster-overlay.yaml > multios-classy-cluster-config-customized.yaml
 # TODO: Use the trust variable that has a additionalTrustedCAs with exactly the same CA in base64 format, and drop our additional variable.
 ```
