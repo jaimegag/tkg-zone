@@ -31,7 +31,7 @@ spec:
     spec:
       containers:
       - name: kibana
-        image: harbor.h2o-4-1056.h2o.vmware.com/tkg/kibana:7.2.1
+        image: bitnami/kibana:7.2.1
         resources:
           limits:
             cpu: 1000m

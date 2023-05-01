@@ -46,7 +46,7 @@ imgpkg copy --tar /tmp/servercore.tar --to-repo $TKG_CUSTOM_IMAGE_REPOSITORY/ser
 ## For test apps
 ## Using the skopeo commands (need installing skopeo binary: https://github.com/containers/skopeo) which enusres all layers of the image are copied to the registry
 skopeo copy --override-os windows --override-arch multiarch docker://mcr.microsoft.com/dotnet/framework/samples:aspnetapp-windowsservercore-ltsc2019 docker-archive:/tmp/aspnet-skopeo.tar
-skopeo copy docker-archive:/tmp/aspnet-skopeo.tar --dest-cert-dir="/home/jaime/workspace/" --dest-authfile="/home/jaime/.docker/config.json." docker://harbor.h2o-4-1056.h2o.vmware.com/tkg/aspnet-skopeo:aspnetapp-windowsservercore-ltsc2019
+skopeo copy docker-archive:/tmp/aspnet-skopeo.tar --dest-cert-dir="/home/jaime/workspace/" --dest-authfile="/home/jaime/.docker/config.json" docker://harbor.h2o-4-1056.h2o.vmware.com/tkg/aspnet-skopeo:aspnetapp-windowsservercore-ltsc2019
 # These would be the equivalent commands with imgpkg but had some issues with it and that specific Windows Container image.
 #imgpkg copy -i mcr.microsoft.com/dotnet/framework/samples:aspnetapp-windowsservercore-ltsc2019 --to-tar /tmp/aspnet.tar --include-non-distributable-layers
 #imgpkg copy --tar /tmp/aspnet.tar --to-repo $TKG_CUSTOM_IMAGE_REPOSITORY/aspnet --registry-ca-cert-path ~/workspace/harbor-cacrt.crt --include-non-distributable-layers
