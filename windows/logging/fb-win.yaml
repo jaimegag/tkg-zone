@@ -197,7 +197,7 @@ spec:
     spec:
       containers:
       - name: fluent-bit-windows
-        image: harbor.h2o-4-1056.h2o.vmware.com/tkg/fluent-bit:windows-2019-2.0.6
+        image: fluent/fluent-bit:windows-2019-2.0.6
         resources:
           limits:
             memory: 600Mi

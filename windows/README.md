@@ -1,46 +1,61 @@
 # Windows Containers advanced
 
-This guide is focused on the Platform Operator persona that owns and has admin access to a Tanzu Kubernetes Grid environment on vSphere. This guide will help the Platform Operator to create a Windows base image, use it to create a TKG cluster with (short-named) Windows nodes, deploy the SMB CSI Drivers in it, deploy the Prometheus Windows Exporter and deploy Fluent-Bit as well; all in an environment without internet connectivity (a.k.a air-gapped).
+This guide is focused on the Platform Operator persona that owns and has admin access to a Tanzu Kubernetes Grid environment on vSphere. This guide will help the Platform Operator create a Windows base image, use it to create a TKG MultiOS cluster with Windows nodes, deploy the SMB CSI Drivers in it, deploy the Prometheus Windows Exporter and deploy Fluent-Bit as well; all in an environment without internet connectivity (a.k.a air-gapped).
 
 ## 0. Pre-requisites
 
 This Guides makes a few assumptions on the environment and tools available for the user.
 - Existing vSphere v7.0.x environment without interenet connectivity in the default networks.
-- Existing Linux jumpbox with internet connectivity, direct via special network interface or via proxy, with the following CLIs installed: Tanzu CLI v1.6.0 with all the Carvel tools included in the package, yq, kubeclt, and Docker Engine. Here's [a sample guide](https://github.com/Tanzu-Solutions-Engineering/tanzu-workstation-setup/blob/main/Linux.md) that can help with that setup.
-- Existing Standalone Harbor Registry in place in the same environment, or accessible from the environment. Here's [a sample guide](https://github.com/Tanzu-Solutions-Engineering/tanzu-workstation-setup/blob/main/Harbor.md) that can help with that setup.
+- Existing Linux jumpbox with internet connectivity, direct via special network interface or via proxy, with the following CLIs installed: Tanzu CLI for TKG v2.1.1 with all the Carvel tools included in the package, yq, kubeclt, and Docker Engine. Here's [a sample guide](https://github.com/Tanzu-Solutions-Engineering/tanzu-workstation-setup/blob/main/Linux.md) that can help with that setup.
+- Existing Standalone Harbor Registry in place in the same environment, or accessible from the environment. You can follow instructions to Deploy a [Harbor OVA Image](https://docs.vmware.com/en/VMware-Tanzu-Kubernetes-Grid/2.1/tkg-deploy-mc-21/mgmt-reqs-harbor.html) in the official documentation.
 - Harbor Registry will have a Public `tkg` project.
-- Harbor CA cert stored in a local path in your jumpbox. In this guide it will be here: `/tmp/cacrtbase64d.crt`.
-- Existing Tanzu Kubernetes Grid v1.6.0 management cluster deployed on networks without internet access. Here is the [Official Documentation](https://docs.vmware.com/en/VMware-Tanzu-Kubernetes-Grid/1.6/vmware-tanzu-kubernetes-grid-16/GUID-mgmt-clusters-airgapped-environments.html) that can guide you to prepare that setup.
+- Harbor CA cert stored in a local path in your jumpbox. In this guide it will be here: `~/workspace/harbor-cacrt.crt`.
+- Existing Tanzu Kubernetes Grid v2.1.1 management cluster deployed on networks without internet access. Here is the [Official Documentation](https://docs.vmware.com/en/VMware-Tanzu-Kubernetes-Grid/2.1/tkg-deploy-mc-21/mgmt-reqs-prep-offline.html) that can guide you to prepare that setup.
+
+Set folders and the following environment variables in your linux jumpbox, as we will use these a few times during the following steps:
+```bash
+## Create workspace folder
+mkdir -p ~/workspace/
+#
+# Place your Harbor CA cert in that workspace folder in file harbor-cacrt.crt
+#
+# Clone this repository in the workspace folder -> ~/workspace/tkg-zone/
+#
+# Replace these values with your Harbor FQDN/project and location of the Harbor CA cert respectively.
+export TKG_CUSTOM_IMAGE_REPOSITORY="harbor.h2o-4-1056.h2o.vmware.com/tkg"
+export TKG_CUSTOM_IMAGE_REPOSITORY_CA_CERTIFICATE=`base64 -w 0 ~/workspace/harbor-cacrt.crt`
+# Configure persistent Private Registry settings in the Tanzu CLI
+tanzu config set env.TKG_CUSTOM_IMAGE_REPOSITORY $TKG_CUSTOM_IMAGE_REPOSITORY
+tanzu config set env.TKG_CUSTOM_IMAGE_REPOSITORY_SKIP_TLS_VERIFY false
+tanzu config set env.TKG_CUSTOM_IMAGE_REPOSITORY_CA_CERTIFICATE $TKG_CUSTOM_IMAGE_REPOSITORY_CA_CERTIFICATE
+```
 
 ## 1. Create Windows Image
 
-This guide follows some of the steps of the official doc for building windows images [here](https://docs.vmware.com/en/VMware-Tanzu-Kubernetes-Grid/1.6/vmware-tanzu-kubernetes-grid-16/GUID-build-images-windows.html), adapting them to air-gapped.
+This guide follows some of the steps of the official doc for building windows images [here](https://docs.vmware.com/en/VMware-Tanzu-Kubernetes-Grid/2.1/tkg-deploy-mc-21/mgmt-byoi-windows.html), adapting them to air-gapped.
 
 ### 1.1 Populate additional images
 
 Assuming an environment without internet connectivity: in addition to the TKG system and services images that you have relocacted already as part of the initial setup and TKG mangement cluster deployment, we need to relocate a few other Windows images
 
-Relocate servercore container, and Image Builder container images. Replace local paths and destination registry URLs accordingly.
+Relocate servercore container image. Replace local paths and destination registry URLs accordingly.
 ```bash
-imgpkg copy -i mcr.microsoft.com/windows/servercore:ltsc2019 --to-repo harbor.h2o-4-1056.h2o.vmware.com/tkg/servercore --registry-ca-cert-path /tmp/cacrtbase64d.crt --include-non-distributable-layers
-imgpkg copy -i projects.registry.vmware.com/tkg/image-builder:v0.1.12_vmware.2 --to-repo harbor.h2o-4-1056.h2o.vmware.com/tkg/image-builder --registry-ca-cert-path /tmp/cacrtbase64d.crt
+imgpkg copy -i mcr.microsoft.com/windows/servercore:ltsc2019 --to-tar /tmp/servercore.tar --include-non-distributable-layers
+imgpkg copy --tar /tmp/servercore.tar --to-repo $TKG_CUSTOM_IMAGE_REPOSITORY/servercore --registry-ca-cert-path ~/workspace/harbor-cacrt.crt --include-non-distributable-layers
 
 ## For test apps
-
-## Create workspace folder
-mkdir -p ~/workspace/
-
 ## Using the skopeo commands (need installing skopeo binary: https://github.com/containers/skopeo) which enusres all layers of the image are copied to the registry
-skopeo copy --override-os windows --override-arch multiarch docker://mcr.microsoft.com/dotnet/framework/samples:aspnetapp-windowsservercore-ltsc2019 docker-archive:/home/jaime/workspace/aspnet.tar
-skopeo copy docker-archive:/home/jaime/workspace/aspnet.tar --dest-cert-dir="/tmp/" --dest-authfile="/home/jaime/.docker/config.json." docker://harbor.h2o-4-1056.h2o.vmware.com/tkg/aspnet:aspnetapp-windowsservercore-ltsc2019
-# This would be the equivalent command with imgpkg but had some issues with it and that specific Windows Container image.
-# imgpkg copy -i mcr.microsoft.com/dotnet/framework/samples:aspnetapp-windowsservercore-ltsc2019 --to-repo harbor.h2o-4-1056.h2o.vmware.com/tkg/aspnet --registry-ca-cert-path /tmp/cacrtbase64d.crt --include-non-distributable-layers
+skopeo copy --override-os windows --override-arch multiarch docker://mcr.microsoft.com/dotnet/framework/samples:aspnetapp-windowsservercore-ltsc2019 docker-archive:/tmp/aspnet-skopeo.tar
+skopeo copy docker-archive:/tmp/aspnet-skopeo.tar --dest-cert-dir="/home/jaime/workspace/" --dest-authfile="/home/jaime/.docker/config.json" docker://harbor.h2o-4-1056.h2o.vmware.com/tkg/aspnet-skopeo:aspnetapp-windowsservercore-ltsc2019
+# These would be the equivalent commands with imgpkg but had some issues with it and that specific Windows Container image.
+#imgpkg copy -i mcr.microsoft.com/dotnet/framework/samples:aspnetapp-windowsservercore-ltsc2019 --to-tar /tmp/aspnet.tar --include-non-distributable-layers
+#imgpkg copy --tar /tmp/aspnet.tar --to-repo $TKG_CUSTOM_IMAGE_REPOSITORY/aspnet --registry-ca-cert-path ~/workspace/harbor-cacrt.crt --include-non-distributable-layers
 ```
 
 ### 1.2 Image Builder pre-requisites
 
 1. You must obtain a Windows Server 2019 iso image, with the latest patch version August 2021 or later. You need to upload the iso file to your datastore’s [ISO] folder, noting the uploaded path.
-2. Download the latest VMware Tools iso image from https://packages.vmware.com/tools/releases/latest/windows/VMware-tools-windows-12.1.0-20219665.iso) and upload to your datastore’s [ISO] folder, noting the uploaded path.
+2. Download the latest VMware Tools iso image from https://packages.vmware.com/tools/releases/latest/windows/VMware-tools-windows-12.1.5-20735119.iso) and upload to your datastore’s [ISO] folder, noting the uploaded path.
 
 ### 1.3 Deploy Image Builder Resource Kit
 
@@ -50,14 +65,14 @@ Make sure to edit the yaml to change the Harbor registry domain of the image to 
 
 ```bash
 kubectl config use-context mgmt-admin@mgmt
-kubectl apply -f ./windows/image/builder-airgapped.yaml
+kubectl apply -f ~/workspace/tkg-zone/windows/image/builder-airgapped.yaml
 # check pods are Running
 kubectl get pods -n imagebuilder
 ```
 
 ### 1.4 Prepare web server with CSI Proxy Binary
 
-You need to build the CSI Proxy Binary as described in the upstream [CSI Proxy Build guide](https://github.com/kubernetes-csi/csi-proxy/tree/v1.1.1#build). In this guide we have used `v1.1.1` of the CSI Proxy.
+You need to build the CSI Proxy Binary as described in the upstream [CSI Proxy Build guide](https://github.com/kubernetes-csi/csi-proxy/tree/v1.1.1#build). In this guide we have used `v1.1.1` of the CSI Proxy and later versions should work.
 Additional insights and details on building the `csi-proxy.exe` binary can also be found [here](/smb-csi/BuildCSIProxy.md) in this repo.
 
 Once you have built the `csi-proxy.exe` binary you must upload it to the jumpbox from where you are operating in this guide. Then we will setup a web server to make this binary available during the Image Builder process.
@@ -66,6 +81,8 @@ Once you have built the `csi-proxy.exe` binary you must upload it to the jumpbox
 # change directory to a suitable spot in your jumpbox (~/workspace/ in this guide)
 mkdir -p ~/workspace/winres
 # copy the csi-proxy.exe binary to that location
+# download the SSH Binary
+curl -JOL https://github.com/PowerShell/Win32-OpenSSH/releases/download/v8.9.1.0p1-Beta/OpenSSH-Win64.zip
 cd ~/workspace/
 set -m; nohup python3 -m http.server --directory winres > /dev/null 2>&1 & 
 # Test your Jumpbox IP on port 8000 in your browser to confirm files are available and ready to be served. Example:
@@ -74,21 +91,26 @@ set -m; nohup python3 -m http.server --directory winres > /dev/null 2>&1 &
 
 ### 1.5 Create Configuration for Windows Image
 
-Edit the `/windows/image/windows-airgapped.json` sample file in this repo and change the following fields:
+Edit the `~/workspace/tkg-zone/windows/image/windows-airgapped.json` file and change the following fields:
 - unattend_timezone: < your vcenter environment timezone> # hint: use `tzutil /l` on Windows to get a list of the supported timezone values, or check https://www.windowsafg.com/win10x86_x64_uefi.html
 - password: < your vCenter password >
 - username: < your vCenter username >
 - datastore: < your vCenter datastore >
 - datacenter: < your vCenter datacenter >
+- cluster: < your vCenter cluster >
+- folder: < your vCenter folder where to put the resulting template >
+- debug_tools: < make sure this is set to false otherwise it will fail downloading these tools in an offline environment >
 - vmtools_iso_path < your datastore iso path and vmware-tools iso name you uploaded earlier in this guide >
-- network: < a vCenter portgroup/network available >
+- network: < a vCenter portgroup/network available with DHCP enabled >
 - os_iso_path: < your datastore iso path and windows-image iso name you uploaded earlier in this guide >
 - vcenter_server: < your vCenter IP or FQDN >
-- kubernetes_base_url, containerd_url, additional_executables_list, nssm_url, wins_url, cloudbase_init_url, ssh_source_url, goss_url: < change IP to the IP of one of the Control Plane nodes in your management cluster >
+- kubernetes_base_url, containerd_url, additional_executables_list, wins_url, cloudbase_init_url, nssm_url, goss_url, additional_executables_list: < change IP to the IP of one of the Control Plane nodes in your management cluster >
+- ssh_source_url: < change IP to the IP of the jumpbox where you launched your webserver >
+- containerd_sha256_windows: < change sha256 to the value listed in your http://CONTROLPLANE-IP:30008/ response >
 - windows_updates_categories: < make sure this is empty since windows updates need to be ignored in this airgapped image-builder steps >
-- pause_image: < your internal registry pause image, which you relocated together with all TKG system images >
-- debug_tools: < make sure it is set to false >
-- additional_executables_list: to incldue the csi-proxy.exe in the Image place here the internal URL of the web server you launched in the previous step (comma separated). E.g, add `,http://10.220.52.10:8000/csi-proxy.exe`
+- pause_image: < your internal registry pause image, which you relocated earlier >
+- additional_prepull_images: < your internal registry servercore image, which you relocated earlier >
+- additional_executables_list: if you want to incldue the csi-proxy.exe in the Image and you prepared it in the step before, place here that internal URL of the web server you launched in the previous step (comma separated). E.g, add `,http://10.220.52.10:8000/csi-proxy.exe`
 
 Check the `/windows/image/autounattend.xml` file in this repo:
 - You may need to review the `ProductKey` and drive allocations match your requirements in your environment, especially if this template is built for a production environment that requires specific MAK keys. Remember the password in this file is temporary and will be removed prior to pushing the image into vSphere.
@@ -98,123 +120,138 @@ Check the `/windows/image/autounattend.xml` file in this repo:
 Run this command from the `/windows/image/` folder that contains the `windows-airgapped.json` and `autounattend.xml` you worked on the previous step. Adjust the `image-builder` container image URI to match with your Harbor registry.
 
 ```bash
-docker run -it --rm --mount type=bind,source=$(pwd)/windows-airgapped.json,target=/windows.json --mount type=bind,source=$(pwd)/autounattend.xml,target=/home/imagebuilder/packer/ova/windows/windows-2019/autounattend.xml -e PACKER_VAR_FILES="/windows.json" -e IB_OVFTOOL=1 -e IB_OVFTOOL_ARGS='--skipManifestCheck' -e PACKER_FLAGS='-force -on-error=ask' -e PACKER_LOG=1 -t harbor.h2o-4-1056.h2o.vmware.com/tkg/image-builder:v0.1.12_vmware.2 build-node-ova-vsphere-windows-2019
+# Get to the right folder first
+cd ~/workspace/tkg-zone/windows/image/
+
+docker run -it --rm --mount type=bind,source=$(pwd)/windows-airgapped.json,target=/windows.json --mount type=bind,source=$(pwd)/autounattend.xml,target=/home/imagebuilder/packer/ova/windows/windows-2019/autounattend.xml -e PACKER_VAR_FILES="/windows.json" -e IB_OVFTOOL=1 -e IB_OVFTOOL_ARGS='--skipManifestCheck' -e PACKER_FLAGS='-force -on-error=ask' -t harbor.h2o-4-1056.h2o.vmware.com/tkg/image-builder:v0.1.13_vmware.2 build-node-ova-vsphere-windows-2019
 ```
 
-This process will take ~30 minutes: as it creates A VM in your vSphere environment, reboots it a few times and finally creates a vSphere VM Template out of it.
+This process will take 60+ minutes: as it creates A VM in your vSphere environment, reboots it a few times and finally creates a vSphere VM Template out of it.
 
 
-## 2. Create a TKG cluster with Windows nodes
+## 2. Create a TKG MultiOS cluster with Windows nodes
 
-### 2.1 Configure Registry Endpoint and Certs
+### 2.1 Prepare Cluster customizations
 
-Configure persistent Private Registry settings in the Tanzu CLI. This should have been done already during the deployment of the management cluster, but just to be sure we reiterate it.
+There are a few  customizations that are required for Windows/MultiOS clusters that on TKG 2.1.x require us to create a Custom ClusterClass and use jsonPatches in it.
+- Fix/clean Antrea configuration after reboots. This is strongly recommended for any scenario
+- If you are deploying Windows Clusters in an air-gapped environment and/or using a Harbor registry wih self-signed certs you will also need to inject the CA Cert
+- Disabling MHC for Windows nodes
 
+TODOs: In prior versions we had customizations to enable shorter node names for windows nodes and autoscaler for windows node pools. Older implementations for this are not required but new implementations are a WIP due to some issues. Will be added asap.
+
+Create Custom ClusterClass for MultiOS cluster and prepare Cluster Overlay
 ```bash
-# Replace these values with your Harbor FQDN/project and location of the Harbor CA cert respectively.
-export TKG_CUSTOM_IMAGE_REPOSITORY="harbor.h2o-4-1056.h2o.vmware.com/tkg"
-export TKG_CUSTOM_IMAGE_REPOSITORY_CA_CERTIFICATE=`base64 -w 0 /tmp/cacrtbase64d.crt`
-# CLI settings
-tanzu config set env.TKG_CUSTOM_IMAGE_REPOSITORY $TKG_CUSTOM_IMAGE_REPOSITORY
-tanzu config set env.TKG_CUSTOM_IMAGE_REPOSITORY_SKIP_TLS_VERIFY false
-tanzu config set env.TKG_CUSTOM_IMAGE_REPOSITORY_CA_CERTIFICATE $TKG_CUSTOM_IMAGE_REPOSITORY_CA_CERTIFICATE
+# Go to the folder in this repo that has all the cluster and ClusterClass configurations
+cd ~/workspace/tkg-zone/windows/cluster/
+# Copy OOTB Clusterclass
+kubectl get cc tkg-vsphere-default-v1.0.0 -oyaml > tkg-vsphere-default-multios-ag-cc.yaml
+# Cleam metadata and change name
+yq e -i '.metadata.name = "tkg-vsphere-default-multios-ag"' tkg-vsphere-default-multios-ag-cc.yaml
+yq e -i 'del(.metadata.annotations."kapp.k14s.io/original")' tkg-vsphere-default-multios-ag-cc.yaml
+yq e -i 'del(.metadata.annotations."kapp.k14s.io/original-diff-md5")' tkg-vsphere-default-multios-ag-cc.yaml
+yq e -i 'del(.metadata.annotations."kapp.k14s.io/identity")' tkg-vsphere-default-multios-ag-cc.yaml
+yq e -i 'del(.metadata.annotations."kubectl.kubernetes.io/last-applied-configuration")' tkg-vsphere-default-multios-ag-cc.yaml
+yq e -i 'del(.metadata.creationTimestamp)' tkg-vsphere-default-multios-ag-cc.yaml
+yq e -i 'del(.metadata.generation)' tkg-vsphere-default-multios-ag-cc.yaml
+yq e -i 'del(.metadata.labels)' tkg-vsphere-default-multios-ag-cc.yaml
+yq e -i 'del(.metadata.resourceVersion)' tkg-vsphere-default-multios-ag-cc.yaml
+yq e -i 'del(.metadata.uid)' tkg-vsphere-default-multios-ag-cc.yaml
+# If you are added the `csi-proxy.exe` binary in the `additional_executables_list` of your Windows json file, then add the following code in the `windows-antrea` json-patch in after row 1490 (after the Start Services block) in the custom cluster class yaml. include 18 spaces at the beginning of each row for the right indentation
+vi tkg-vsphere-default-multios-ag-cc.yaml
+
+            
+            # Configure and Start CSI Proxy
+            $csiflags = "-windows-service -log_file=C:\programdata\temp\csi-proxy.log -logtostderr=false"
+            sc.exe create csiproxy binPath= "C:\programdata\temp\csi-proxy.exe $csiflags" start= auto
+            sc.exe failure csiproxy reset= 0 actions= restart/10000
+            sc.exe start csiproxy
+# Use the repo's /windows/cluster/cc-win-cacert-overlay.yaml overlay to customize our ClusterClass definition with the Registry certificate
+# Use the repo's /windows/cluster/cc-win-remove-mhc-overlay.yaml overlay to disable MHC for windows worker nodes
+# Use the repo's /windows/cluster/cc-win-antrea-cleanup-overlay.yaml overlay to fix/clean Antrea configuration after reboots
+# and apply the ClusterClass in the MC:
+ytt -f tkg-vsphere-default-multios-ag-cc.yaml -f cc-win-cacert-overlay.yaml -f cc-win-remove-mhc-overlay.yaml -f cc-win-antrea-cleanup-overlay.yaml | kubectl apply -f -
+# Edit the ./windows/cluster-overlay.yaml file and replace the Certificate with the one from your Harbor registry, which is located in `~/workspace/harbor-cacrt.crt`
+vi cluster-overlay.yaml
 ```
 
-For Windows clusters you also need to inject the CA Cert via Ovelay. See below.
+### 2.2 Prepare OSImage and TKR configuration for Windows
 
-### 2.2 Prepare Cluster customizations
-
-To change the CP taint that prevents deploying pods into CP nodes, copy the `./windows/overlays/remove-cp-taints-overlay.yaml` and `./windows/overlays/remove-cp-taints-values.yaml` files into the `~/.config/tanzu/tkg/providers/ytt/03_customizations` folder.
-
-If you want to configure the Windows node names to have 15 characters or less you should copy `./windows/overlays/windows-0shortnodenames-overlay.yaml` and `./windows/overlays/windows-0shortnodenames-values.yaml` files into the `~/.config/tanzu/tkg/providers/ytt/03_customizations` folder. This would facilitate deploying certain TKG add-ons and the integration with TMC.
-
-If you are deploying Windows Clusters and using a Harbor registry wih self-signed certs you will also need to inject the CA Cert via Ovelay. Copy the `./windows/overlays/windows-inject-cert-overlay.yaml` and the `./windows/overlays/windows-inject-cert-values.yaml` into the `~/.config/tanzu/tkg/providers/ytt/03_customizations` folder.
-
-If you need the vSphere CSI Driver to work for the control-plane nodes as required in the [metrics lab](/windows/metrics/README.md) in this repo, you need to edit this file: `~/.config/tanzu/tkg/providers/ytt/02_addons/csi/csi_secret.yaml`, and remove this part from the `if` statement on row 6: `and not data.values.IS_WINDOWS_WORKLOAD_CLUSTER`. That will allow the vSphere CSI Driver Package to be installed (for Linux nodes only).
-
-If you want the `secretgen-controller` Package to be installed as a core add-pn, you need to edit this file: `~/.config/tanzu/tkg/providers/ytt/02_addons/secretgen-controller/add_secretgen-controller.yaml`, and remove this part from the `if` statement on row 7: `and not data.values.IS_WINDOWS_WORKLOAD_CLUSTER`. That will allow the Package to be installed (running in the control-plane nodes).
-
-If you want to enable Cluster Autoscaler in Windows clusters you need to copy this filr from the repo `./windows/overlays/autoscaler_overlay.yaml` in this folder (overwriting the existing file): `~/.config/tanzu/tkg/providers/ytt/03_customizations/autoscaler/`.
-
-To start the CSI Proxy as a Windows service in the Windows nodes you need to edit the `~/.config/tanzu/tkg/providers/infrastructure-vsphere/v1.3.1/ytt/overlay-windows.yaml` file:
+Apply the repo's `/windows/cluster/win-osimage.yaml` file in this repository containing the OSImage resource for Windows. Adjust the Windows template accordingly to where it was placed in your envionment when you created the Windows Image:
 ```bash
-# Add the following code after row 408 (after the Start Services block). include 10 spaces at the beginning of each row for the right indentation
-
-# Configure and Start CSI Proxy
-$csiflags = "-windows-service -log_file=C:\programdata\temp\csi-proxy.log -logtostderr=false"
-sc.exe create csiproxy binPath= "C:\programdata\temp\csi-proxy.exe $csiflags" start= auto
-sc.exe failure csiproxy reset= 0 actions= restart/10000
-sc.exe start csiproxy
+cd ~/workspace/tkg-zone/windows/cluster/
+kubectl apply -f win-osimage.yaml
 ```
 
-### 2.3 Prepare Windows Cluster config file
+Edit the v1.24.10 TKR to add windows `bootstrapPackage` and `osImage`:
+```bash
+kubectl edit tkr v1.24.10---vmware.1-tkg.2
+# Add, keeping existing bootstrapPackages
+# spec:
+#    bootstrapPackages:
+#    - name: tkg-windows.tanzu.vmware.com.0.28.1+vmware.1
+# Add, keeping existing osImages
+# spec:
+#    osImages:
+#    - name: v1.24.10---vmware.1-tkg.1-windows
+```
 
-Copy the `cluster-config.yaml` you used to deploy the management-cluster into a new `win1-cluster-config.yaml` file, then make some edits in it:
+### 2.3 Prepare MultiOS Cluster config files
+
+Copy the `cluster-config.yaml` you used to deploy the management-cluster into a new `~/workspace/tkg-zone/windows/cluster/multios-cluster-config.yaml` file, then make some edits in it:
 - Delete `AVI` keys, except `AVI_CONTROL_PLANE_HA_PROVIDER`
 - Delete `ENABLE_CEIP_PARTICIPATION`
+- Delete `MHC` keys
 - Delete `LDAP` keys
 - Delete `OIDC` keys
 - Delete `DEPLOY_TKG_ON_VSPHERE7` and `ENABLE_TKGS_ON_VSPHERE7` (if present)
 - Update the following properties to these default values (at least)
 ```bash
-VSPHERE_WORKER_DISK_GIB: "50"
+VSPHERE_WORKER_DISK_GIB: "80"
 VSPHERE_WORKER_MEM_MIB: "16384"
 VSPHERE_WORKER_NUM_CPUS: "4"
-VSPHERE_CONTROL_PLANE_DISK_GIB: "40"
-VSPHERE_CONTROL_PLANE_MEM_MIB: "16384"
-VSPHERE_CONTROL_PLANE_NUM_CPUS: "4"
-OS_NAME: ubuntu
-OS_VERSION: 2004
-```bash
-- Update `CLUSTER_NAME` with a suitable name for your Windows Cluster. In this guide we use `win1`
+```
+- Update `CLUSTER_NAME` with a suitable name for your Windows Cluster. In this guide we use `multios`
 - Update `VSPHERE_CONTROL_PLANE_ENDPOINT` to one of the NSX-ALB (AVI) VIPs avaiable in the pool or leave empty for it to be auto-asigned
-- Add `WORKER_MACHINE_COUNT` with the number of worker nodes you want for the Windows cluster
-- Add `ROOT_CERT` with the base64 encoded CA cert for your Harbor registry
 - Add the following properties
 ```bash
 IS_WINDOWS_WORKLOAD_CLUSTER: "true"
-VSPHERE_WINDOWS_TEMPLATE: windows-2019-kube-v1.23.8
-REMOVE_CP_TAINT: "true"
+WORKER_MACHINE_COUNT: 2
 ```
 - Optionally add/edit these properties as desired:
 ```bash
-# Enable MHC
-ENABLE_MHC: true
-# Enable Autoscaler (you need the autosaler_overlay.yaml updated as detailed in the section 2.2 above)
-AUTOSCALER_ENABLED: "true"
-AUTOSCALER_MIN_SIZE_0: 2
-AUTOSCALER_MAX_SIZE_0: 4
 # Enable Audit logs
 ENABLE_AUDIT_LOGGING: "true"
 ```
 
-### 2.4 Deploy Windows Cluster
-
-If you want to deploy a Windows cluster ensuring the shortest node name (cluster-name+6_char_hash) then use this script call, chainging the last parameter to the number of worker nodes you desire:
+Now create the classy config file
 ```bash
-# Edit worker nodes in your cluster config to 0 and set flag to true
-WORKER_MACHINE_COUNT: 0
-ZERO_SHORT_NODE_NAMES: "true"
+# go to the folder with all the windows cluster configurations
+cd ~/workspace/tkg-zone/windows/cluster/
 
-# Deploy with this script.
-## - The first parameter is the name of the cluster
-## - The second parameter is the path and name of the "win1-cluster-config.yaml" file you created in the previous step.
-## - The third parameter is the actal number of nodes you want to have
-./windows/scripts/create_windows_cluster_shortnodename.sh "win1" "/home/jaime/workspace/win1-cluster-config.yaml" 2
+# Create classy config file
+tanzu cluster create multios --file multios-cluster-config.yaml --dry-run > multios-classy-cluster-config.yaml
+
+# Apply overlay to add Linux machineDeployment and variable to inject Harbor CA cert (if you added it earlier to the overlay). The result is a classy config file to create a MultiOS cluster that can pull images for our insecure Harbor registry.
+ytt -f multios-classy-cluster-config.yaml -f cluster-overlay.yaml > multios-classy-cluster-config-customized.yaml
+# TODO: Use the trust variable that has a additionalTrustedCAs with exactly the same CA in base64 format, and drop our additional variable.
 ```
 
-Otherwise follow these steps:
+### 2.4 Deploy Windows Cluster
+
+Follow these steps:
 ```bash
 # Deploy
-tanzu cluster create -f win1-cluster-config.yaml -v 6
+tanzu cluster create -f multios-classy-cluster-config-customized.yaml -v 6
 # get some more coffee, takes about 15 minutes
 ```
 
-Validate admin access to windows cluster
+Validate admin access to multios cluster
 ```bash
-tanzu cluster kubeconfig get win1 --admin
-kubectl config use-context win1-admin@win1
-k get po -A
+tanzu cluster kubeconfig get multios --admin
+kubectl config use-context multios-admin@multios
+kubectl get po -A
+kubectl get no -owide
 ```
 
 #### 2.5 Check CSI Proxy is running
@@ -256,26 +293,3 @@ Follow the [Prometheus Windows Exporter setup guide](/windows/metrics/README.md)
 ## 5. Deploy FluentBit
 
 Follow the [Fluent-Bit Logging setup guide](/windows/logging/README.md)
-
-## 6. Deploy SecretGen Controller
-
-Only if you did not deploy the `secretgen-controller` Package as a core add-on during the deployment of the Windows cluster as described [here](/windows/README.md#22-prepare-cluster-customizations) you can try to deploy it as a Package now following these steps:
-```bash
-# Deploy Package
-tanzu package install secretgen-controller \
-   -p secretgen-controller.tanzu.vmware.com \
-   -v 0.9.1+vmware.1-tkg.1
-   -n tkg-system
-   -f ./windows/overlays/secretgen_values.yml
-# Check Package is deployed and controller is running
-k get all -n tanzu-system
-# It should look like this
-# NAME                                        READY   STATUS    RESTARTS   AGE
-# pod/secretgen-controller-5d9f7bd8db-n9vhn   1/1     Running   0          15m
-
-# NAME                                   READY   UP-TO-DATE   AVAILABLE   AGE
-# deployment.apps/secretgen-controller   1/1     1            1           15m
-
-# NAME                                              DESIRED   CURRENT   READY   AGE
-# replicaset.apps/secretgen-controller-5d9f7bd8db   1         1         1       15m
-```

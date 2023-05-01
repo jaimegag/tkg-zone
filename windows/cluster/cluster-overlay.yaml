@@ -1,0 +1,54 @@
+#@ load("@ytt:overlay", "overlay")
+#@ load("@ytt:data", "data")
+  
+#@overlay/match by=overlay.subset({"kind":"Cluster"}), expects="1+"
+---
+spec:
+  topology:
+    #@overlay/match missing_ok=True
+    class: tkg-vsphere-default-multios-ag
+    variables:
+      #@overlay/append
+      - name: caCertChain
+        value: |
+          -----BEGIN CERTIFICATE-----
+          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
+          kiHB4HLI7P8v9gMpBrYL14MezYOXP5s=
+          -----END CERTIFICATE-----
+    workers:
+      machineDeployments:
+        #@overlay/append        
+        - class: tkg-worker
+          metadata:
+            annotations:
+              run.tanzu.vmware.com/resolve-os-image: image-type=ova,os-name=ubuntu
+          name: md-0-l
+          replicas: 2
