@@ -112,6 +112,8 @@ Edit the `~/workspace/tkg-zone/windows/image/windows-airgapped.json` file and ch
 - additional_prepull_images: < your internal registry servercore image, which you relocated earlier >
 - additional_executables_list: if you want to incldue the csi-proxy.exe in the Image and you prepared it in the step before, place here that internal URL of the web server you launched in the previous step (comma separated). E.g, add `,http://10.220.52.10:8000/csi-proxy.exe`
 
+> Note: With the above configuration we are disabling Windows Updates. That's not realistic for a Production environment. There are ways to extend the image build process with an Ansible Role that can use previously downloaded Windows update offline files (MSU files) and install them in the Windows machine that is created during the image building process. This is not covered in this guide.
+
 Check the `/windows/image/autounattend.xml` file in this repo:
 - You may need to review the `ProductKey` and drive allocations match your requirements in your environment, especially if this template is built for a production environment that requires specific MAK keys. Remember the password in this file is temporary and will be removed prior to pushing the image into vSphere.
 
