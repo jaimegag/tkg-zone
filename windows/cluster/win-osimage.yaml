@@ -1,14 +1,14 @@
 apiVersion: run.tanzu.vmware.com/v1alpha3
 kind: OSImage
 metadata:
-  name: v1.24.10---vmware.1-tkg.1-windows
+  name: v1.25.7---vmware.2-tkg.1-windows
 spec:
   image:
     ref:
-      template: /Datacenter/vm/tkg/windows-2019-kube-v1.24.10
-      version: v1.24.10+vmware.1-tkg.1-windows
+      template: /Datacenter/vm/tkg/windows-2019-kube-v1.25.7
+      version: v1.25.7+vmware.2-tkg.1-windows
     type: ova
-  kubernetesVersion: v1.24.10+vmware.1
+  kubernetesVersion: v1.25.7+vmware.2
   os:
     arch: amd64
     name: windows
