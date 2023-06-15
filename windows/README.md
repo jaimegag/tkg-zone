@@ -6,11 +6,11 @@ This guide is focused on the Platform Operator persona that owns and has admin a
 
 This Guides makes a few assumptions on the environment and tools available for the user.
 - Existing vSphere v7.0.x environment without interenet connectivity in the default networks.
-- Existing Linux jumpbox with internet connectivity, direct via special network interface or via proxy, with the following CLIs installed: Tanzu CLI for TKG v2.1.1 with all the Carvel tools included in the package, yq, kubeclt, and Docker Engine. Here's [a sample guide](https://github.com/Tanzu-Solutions-Engineering/tanzu-workstation-setup/blob/main/Linux.md) that can help with that setup.
-- Existing Standalone Harbor Registry in place in the same environment, or accessible from the environment. You can follow instructions to Deploy a [Harbor OVA Image](https://docs.vmware.com/en/VMware-Tanzu-Kubernetes-Grid/2.1/tkg-deploy-mc-21/mgmt-reqs-harbor.html) in the official documentation.
+- Existing Linux jumpbox with internet connectivity, direct via special network interface or via proxy, with the following CLIs installed: Tanzu CLI for TKG v2.2.0 with all the Carvel tools included in the package, yq, kubeclt, and Docker Engine. Here's [a sample guide](https://github.com/Tanzu-Solutions-Engineering/tanzu-workstation-setup/blob/main/Linux.md) that can help with that setup.
+- Existing Standalone Harbor Registry in place in the same environment, or accessible from the environment. You can follow instructions to Deploy a [Harbor OVA Image](https://docs.vmware.com/en/VMware-Tanzu-Kubernetes-Grid/2.2/tkg-deploy-mc-22/mgmt-reqs-harbor.html) in the official documentation.
 - Harbor Registry will have a Public `tkg` project.
 - Harbor CA cert stored in a local path in your jumpbox. In this guide it will be here: `~/workspace/harbor-cacrt.crt`.
-- Existing Tanzu Kubernetes Grid v2.1.1 management cluster deployed on networks without internet access. Here is the [Official Documentation](https://docs.vmware.com/en/VMware-Tanzu-Kubernetes-Grid/2.1/tkg-deploy-mc-21/mgmt-reqs-prep-offline.html) that can guide you to prepare that setup.
+- Existing Tanzu Kubernetes Grid v2.2.0 management cluster deployed on networks without internet access. Here is the [Official Documentation](https://docs.vmware.com/en/VMware-Tanzu-Kubernetes-Grid/2.2/tkg-deploy-mc-22/mgmt-reqs-prep-offline.html) that can guide you to prepare that setup.
 
 Set folders and the following environment variables in your linux jumpbox, as we will use these a few times during the following steps:
 ```bash
@@ -32,7 +32,7 @@ tanzu config set env.TKG_CUSTOM_IMAGE_REPOSITORY_CA_CERTIFICATE $TKG_CUSTOM_IMAG
 
 ## 1. Create Windows Image
 
-This guide follows some of the steps of the official doc for building windows images [here](https://docs.vmware.com/en/VMware-Tanzu-Kubernetes-Grid/2.1/tkg-deploy-mc-21/mgmt-byoi-windows.html), adapting them to air-gapped.
+This guide follows some of the steps of the official doc for building windows images [here](https://docs.vmware.com/en/VMware-Tanzu-Kubernetes-Grid/2.2/tkg-deploy-mc-22/mgmt-byoi-windows.html), adapting them to air-gapped.
 
 ### 1.1 Populate additional images
 
@@ -55,7 +55,7 @@ skopeo copy docker-archive:/tmp/aspnet-skopeo.tar --dest-cert-dir="/home/jaime/w
 ### 1.2 Image Builder pre-requisites
 
 1. You must obtain a Windows Server 2019 iso image, with the latest patch version August 2021 or later. You need to upload the iso file to your datastore’s [ISO] folder, noting the uploaded path.
-2. Download the latest VMware Tools iso image from https://packages.vmware.com/tools/releases/latest/windows/VMware-tools-windows-12.1.5-20735119.iso) and upload to your datastore’s [ISO] folder, noting the uploaded path.
+2. Download the latest VMware Tools iso image (e.g: https://packages.vmware.com/tools/releases/latest/windows/VMware-tools-windows-12.1.5-20735119.iso) and upload to your datastore’s [ISO] folder, noting the uploaded path.
 
 ### 1.3 Deploy Image Builder Resource Kit
 
@@ -83,6 +83,8 @@ mkdir -p ~/workspace/winres
 # copy the csi-proxy.exe binary to that location
 # download the SSH Binary
 curl -JOL https://github.com/PowerShell/Win32-OpenSSH/releases/download/v8.9.1.0p1-Beta/OpenSSH-Win64.zip
+# download the Goss Binary
+curl -JOL https://github.com/goss-org/goss/releases/download/v0.3.21/goss-alpha-windows-amd64.exe
 cd ~/workspace/
 set -m; nohup python3 -m http.server --directory winres > /dev/null 2>&1 & 
 # Test your Jumpbox IP on port 8000 in your browser to confirm files are available and ready to be served. Example:
@@ -104,8 +106,9 @@ Edit the `~/workspace/tkg-zone/windows/image/windows-airgapped.json` file and ch
 - network: < a vCenter portgroup/network available with DHCP enabled >
 - os_iso_path: < your datastore iso path and windows-image iso name you uploaded earlier in this guide >
 - vcenter_server: < your vCenter IP or FQDN >
-- kubernetes_base_url, containerd_url, additional_executables_list, wins_url, cloudbase_init_url, nssm_url, goss_url, additional_executables_list: < change IP to the IP of one of the Control Plane nodes in your management cluster >
-- ssh_source_url: < change IP to the IP of the jumpbox where you launched your webserver >
+- kubernetes_base_url, containerd_url, additional_executables_list, cloudbase_init_url, nssm_url, additional_executables_list: < change IP to the IP of one of the Control Plane nodes in your management cluster >
+- wins_url: leave the empty string to prevent download and signal the process to continue without it
+- ssh_source_url, goss_url: < change IP to the IP of the jumpbox where you launched your webserver >
 - containerd_sha256_windows: < change sha256 to the value listed in your http://CONTROLPLANE-IP:30008/ response >
 - windows_updates_categories: < make sure this is empty since windows updates need to be ignored in this airgapped image-builder steps >
 - pause_image: < your internal registry pause image, which you relocated earlier >
@@ -125,7 +128,7 @@ Run this command from the `/windows/image/` folder that contains the `windows-ai
 # Get to the right folder first
 cd ~/workspace/tkg-zone/windows/image/
 
-docker run -it --rm --mount type=bind,source=$(pwd)/windows-airgapped.json,target=/windows.json --mount type=bind,source=$(pwd)/autounattend.xml,target=/home/imagebuilder/packer/ova/windows/windows-2019/autounattend.xml -e PACKER_VAR_FILES="/windows.json" -e IB_OVFTOOL=1 -e IB_OVFTOOL_ARGS='--skipManifestCheck' -e PACKER_FLAGS='-force -on-error=ask' -t harbor.h2o-4-1056.h2o.vmware.com/tkg/image-builder:v0.1.13_vmware.2 build-node-ova-vsphere-windows-2019
+docker run -it --rm --mount type=bind,source=$(pwd)/windows-airgapped.json,target=/windows.json --mount type=bind,source=$(pwd)/autounattend.xml,target=/home/imagebuilder/packer/ova/windows/windows-2019/autounattend.xml -e PACKER_VAR_FILES="/windows.json" -e IB_OVFTOOL=1 -e IB_OVFTOOL_ARGS='--skipManifestCheck' -e PACKER_FLAGS='-force -on-error=ask' -t harbor.h2o-4-1056.h2o.vmware.com/tkg/image-builder:v0.1.13_vmware.3 build-node-ova-vsphere-windows-2019
 ```
 
 This process will take 60+ minutes: as it creates A VM in your vSphere environment, reboots it a few times and finally creates a vSphere VM Template out of it.
@@ -185,17 +188,17 @@ cd ~/workspace/tkg-zone/windows/cluster/
 kubectl apply -f win-osimage.yaml
 ```
 
-Edit the v1.24.10 TKR to add windows `bootstrapPackage` and `osImage`:
+Edit the v1.25.7 TKR to add windows `bootstrapPackage` and `osImage`:
 ```bash
-kubectl edit tkr v1.24.10---vmware.1-tkg.2
+kubectl edit tkr v1.25.7---vmware.2-tkg.1
 # Add, keeping existing bootstrapPackages
 # spec:
 #    bootstrapPackages:
-#    - name: tkg-windows.tanzu.vmware.com.0.28.1+vmware.1
+#    - name: tkg-windows.tanzu.vmware.com.0.29.0+vmware.1
 # Add, keeping existing osImages
 # spec:
 #    osImages:
-#    - name: v1.24.10---vmware.1-tkg.1-windows
+#    - name: v1.25.7---vmware.2-tkg.1-windows
 ```
 
 ### 2.3 Prepare MultiOS Cluster config files
