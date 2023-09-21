@@ -84,6 +84,8 @@ mkdir -p ~/workspace/winres
 # no need to download the SSH Binary for TKG 2.3.0 since it's incldued in the windows bundle -curl -JOL https://github.com/PowerShell/Win32-OpenSSH/releases/download/v8.9.1.0p1-Beta/OpenSSH-Win64.zip
 # download the Goss Binary
 curl -JOL https://github.com/goss-org/goss/releases/download/v0.3.21/goss-alpha-windows-amd64.exe
+# copy the /windows/cluster/install-ovs-2.ps1 file from this repository into this winres folder, as we need a patchd version of this script on TKG 2.3.0, otherwise it will try to download certain SSL libraries wihout success as we are in an air-gapped environment making the ovsdb-server to fail and the winows nodes to be unable to run containers
+cp ~/workspace/tkg-zone/windows/cluster/install-ovs-2.ps1 ~/workspace/winres/
 cd ~/workspace/
 set -m; nohup python3 -m http.server --directory winres > /dev/null 2>&1 & 
 # Test your Jumpbox IP on port 8000 in your browser to confirm files are available and ready to be served. Example:
