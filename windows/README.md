@@ -70,12 +70,16 @@ kubectl apply -f ~/workspace/tkg-zone/windows/image/builder-airgapped.yaml
 kubectl get pods -n imagebuilder
 ```
 
-### 1.4 Prepare web server with CSI Proxy Binary
+### 1.4 Prepare web server with additional files
 
-You need to build the CSI Proxy Binary as described in the upstream [CSI Proxy Build guide](https://github.com/kubernetes-csi/csi-proxy/tree/v1.1.1#build). In this guide we have used `v1.1.1` of the CSI Proxy and later versions should work.
+To run any CSI Driver on Windows nodes you need to build the CSI Proxy Binary as described in the upstream [CSI Proxy Build guide](https://github.com/kubernetes-csi/csi-proxy/tree/v1.1.1#build). In this guide we have used `v1.1.1` of the CSI Proxy and later versions should work.
 Additional insights and details on building the `csi-proxy.exe` binary can also be found [here](/smb-csi/BuildCSIProxy.md) in this repo.
 
 Once you have built the `csi-proxy.exe` binary you must upload it to the jumpbox from where you are operating in this guide. Then we will setup a web server to make this binary available during the Image Builder process.
+
+We also need to add acouple other files:
+- Goss Binary
+- A patched PowerShell script to install OVS
 
 ```bash
 # change directory to a suitable spot in your jumpbox (~/workspace/ in this guide)
@@ -156,6 +160,13 @@ ytt -f tkg-vsphere-default-v1.1.0-thick.yaml -f filter.yaml > tkg-vsphere-defaul
 cp tkg-vsphere-default-v1.1.0.yaml tkg-vsphere-default-multios-ag-cc.yaml
 # Change name
 yq e -i '.metadata.name = "tkg-vsphere-default-multios-ag"' tkg-vsphere-default-multios-ag-cc.yaml # !!!! yq is adding extra spaces in some indentations making the file bigger. If you don't want this, just edit the original file and change the metadata.name manually
+
+# Replace the install-ovs.ps1 reference with our new install-ovs-2.ps1 to avoid the OVS crashing when attempting to download SSL libraries
+# - In the "Install antrea-agent & OVS" section, one of the json patches of the "install-antrea" patch, row 2342: replace this row:
+& C:\k\antrea\Install-OVS.ps1 -ImportCertificate $false -LocalFile C:\k\antrea\ovs-win64.zip
+# with these two rows, at the same indentation, replacing "JUMPBOX-IP" with the IP of your jumpbox
+& curl.exe -kL http://JUMPBOX-IP:8000/install-ovs-2.ps1 -o C:\k\antrea\install-ovs-2.ps1
+& C:\k\antrea\install-ovs-2.ps1 -ImportCertificate $false -LocalFile C:\k\antrea\ovs-win64.zip
 
 # If you are added the `csi-proxy.exe` binary in the `additional_executables_list` of your Windows json file, then add the following code in the `windows-antrea` json-patch in after row 2356 (after the Start Services block) in the custom cluster class yaml. include 18 spaces at the beginning of each row for the right indentation
 vi tkg-vsphere-default-multios-ag-cc.yaml
