@@ -16,10 +16,10 @@ Relocate images: adjust the below commands accordingly to your Harbor Registry F
 ```bash
 mkdir -p ~/workspace/logging
 
-export REPO_LOCAL_FOLDER="/home/jaime/workspace/csi/"
+export REPO_LOCAL_FOLDER="/home/jaime/workspace/logging/"
 export REPO_AUTH_FILE="/home/jaime/.docker/config.json"
 export REPO_CERT_FOLDER="/home/jaime/workspace/"
-export REPO_HARBOR_REGISTRY="harbor.h2o-4-1056.h2o.vmware.com"
+export REPO_HARBOR_REGISTRY="harbor.h2o-4-14873.h2o.vmware.com"
 
 # elasticsearch
 skopeo copy docker://docker.io/bitnami/elasticsearch:7.2.1 docker-archive:${REPO_LOCAL_FOLDER}elasticsearch.tar
@@ -40,7 +40,7 @@ skopeo --override-os windows copy docker://pivotalgreenhouse/logspewer:latest do
 skopeo copy docker-archive:${REPO_LOCAL_FOLDER}logspewer.tar --dest-cert-dir=${REPO_CERT_FOLDER} --dest-authfile=${REPO_AUTH_FILE} docker://${REPO_HARBOR_REGISTRY}/tkg/logspewer:latest
 ```
 
-# 2. Deploy ElasticSearch and Kibana
+# 2. Deploy ElasticSearch and Kibana in Linux cluster
 
 Run these commands to deploy Elasticsearch:
 ```bash
@@ -96,7 +96,7 @@ kubectl get all -n elasticsearch-kibana
 # statefulset.apps/elasticsearch   1/1     6m4s
 ```
 
-# 3. Deploy Fluent-Bit
+# 3. Deploy Fluent-Bit in MultiOS cluster
 
 Edit `/windows/logging/fb-win.yaml` and change the ES host in the OUTPUT section of the ConfigMAp (line 64): Use the ElasticSearch IP you got in the previous section of this guide. Optionally adjust the FILTER in row 98 to your cluster needs. Then run these commands:
 ```bash

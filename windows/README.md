@@ -275,19 +275,31 @@ kubectl get no -owide
 # SSH into a Windows node with the ssh key you created
 ssh -i ./tkg-ssh-pub capv@192.168.14.33
 #
-# Check antrea agent is running
+# Check antrea agent service is running
+PS C:\Users\capv> Get-Service *antrea*
+# Output should look like this:
+# Status   Name               DisplayName
+# ------   ----               -----------
+# Running  antrea-agent       antrea-agent
 PS C:\Users\capv> Get-Process *antrea*
 # Output should look like this:
 # Handles  NPM(K)    PM(K)      WS(K)     CPU(s)     Id  SI ProcessName
 # -------  ------    -----      -----     ------     --  -- -----------
 #      99      10    27512      28660       0.44   2608   0 antrea-agent
 #
-# Check ovs is running:
+# Check ovs is service running:
+PS C:\Users\capv> Get-Service *ovs*
+# Output should look like this:
+# Status   Name               DisplayName
+# ------   ----               -----------
+# Running  ovsdb-server       ovsdb-server
+# Running  ovs-vswitchd       ovs-vswitchd
 PS C:\Users\capv> Get-Process *ovs*
 # Output should look like this:
 # Handles  NPM(K)    PM(K)      WS(K)     CPU(s)     Id  SI ProcessName
 # -------  ------    -----      -----     ------     --  -- -----------
-#       0       7     1628       6228              2636   0 ovsdb-server
+#     183       8     2116       7448       3.81   1792   0 ovsdb-server
+#    6239      11    16652      22548     370.39   2224   0 ovs-vswitchd
 #
 # If you added the `csi-proxy.exe` binary and started it as a Windows Service, check it is running as a Windows Service
 PS C:\Users\capv> Get-Process *csi-proxy*
@@ -308,6 +320,10 @@ PS C:\programdata\temp> dir
 # -a----        9/19/2023  10:20 PM       15011328 csi-proxy.exe
 # -a----        9/20/2023   3:38 PM           1180 csi-proxy.log
 ```
+
+### 2.6 Test a sample app in the Windows nodes
+
+Check the [Windows samples doc](/windows/samples/README.md) in this lab and deploy the ASP.NET application. Remember to replace the `image` URI with the one from your Harbor registry (relocated earlier). E.g: `harbor.h2o-4-14873.h2o.vmware.com/tkg/aspnet-skopeo:aspnetapp-windowsservercore-ltsc2019`.
 
 ## 3. Deploy SMB CSI Driver
 
