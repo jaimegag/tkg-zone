@@ -7,7 +7,7 @@ Deploy app:
 kubectl apply -f windows/samples/aspnet.yaml
 ```
 
-Wait ~5-10 min if it's the first time you deploy it in a given k8s cluster, since the container images are big.
+Wait ~10 min if it's the first time you deploy it in a given k8s cluster, since the container images are big.
 
 Check everything is up and running
 ```bash

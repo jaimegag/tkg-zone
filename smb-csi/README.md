@@ -28,7 +28,7 @@ mkdir -p ~/workspace/csi/
 export REPO_LOCAL_FOLDER="/home/jaime/workspace/csi/"
 export REPO_AUTH_FILE="/home/jaime/.docker/config.json"
 export REPO_CERT_FOLDER="/home/jaime/workspace/"
-export REPO_HARBOR_REGISTRY="harbor.h2o-4-1056.h2o.vmware.com"
+export REPO_HARBOR_REGISTRY="harbor.h2o-4-14873.h2o.vmware.com"
 
 # Linux
 # csi-provisioner:v3.3.0
@@ -152,6 +152,7 @@ cd  ~/workspace/tkg-zone/
 
 # Switch back to our Multi OS cluster. Example (adjust to your context): 
 kubectl config use-context multios-admin@multios
+# We will leverage the linux nodes of the MultiOS cluster for the test app
 
 # Create secret
 kubectl create secret generic smbcreds --from-literal username=smbadmin --from-literal password="gonative"
