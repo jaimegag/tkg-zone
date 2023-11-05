@@ -9,7 +9,7 @@ The guide assumes an air-gapped environment and so images are relocated and yaml
 
 ## 1. Clone SMB CSI Upstream Repo
 
-We have tested `v1.9.0` but yoyu can explore more recent versions.
+We have tested `v1.10.0` but yoyu can explore more recent versions.
 
 ```bash
 git clone https://github.com/kubernetes-csi/csi-driver-smb.git

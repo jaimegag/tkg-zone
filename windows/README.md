@@ -7,10 +7,10 @@ This guide is focused on the Platform Operator persona that owns and has admin a
 This Guides makes a few assumptions on the environment and tools available for the user.
 - Existing vSphere v7.0.x environment without interenet connectivity in the default networks.
 - Existing Linux jumpbox with internet connectivity, direct via special network interface or via proxy, with the following CLIs installed: Tanzu CLI for TKG v2.3.0 with all the Carvel tools included in the package, yq, kubeclt, and Docker Engine. Here's [a sample guide](https://github.com/Tanzu-Solutions-Engineering/tanzu-workstation-setup/blob/main/Linux.md) that can help with that setup.
-- Existing Standalone Harbor Registry in place in the same environment, or accessible from the environment. You can follow instructions to Deploy a [Harbor OVA Image](https://docs.vmware.com/en/VMware-Tanzu-Kubernetes-Grid/2.3/tkg-deploy-mc/mgmt-reqs-harbor.html) in the official documentation.
+- Existing Standalone Harbor Registry in place in the same environment, or accessible from the environment. You can follow instructions to Deploy a [Harbor OVA Image](https://docs.vmware.com/en/VMware-Tanzu-Kubernetes-Grid/2.4/tkg-deploy-mc/mgmt-reqs-harbor.html) in the official documentation.
 - Harbor Registry will have a Public `tkg` project.
 - Harbor CA cert stored in a local path in your jumpbox. In this guide it will be here: `~/workspace/harbor-cacrt.crt`.
-- Existing Tanzu Kubernetes Grid v2.3.0 management cluster deployed on networks without internet access. Here is the [Official Documentation](https://docs.vmware.com/en/VMware-Tanzu-Kubernetes-Grid/2.3/tkg-deploy-mc/mgmt-reqs-prep-offline.html) that can guide you to prepare that setup.
+- Existing Tanzu Kubernetes Grid v2.4.0 management cluster deployed on networks without internet access. Here is the [Official Documentation](https://docs.vmware.com/en/VMware-Tanzu-Kubernetes-Grid/2.4/tkg-deploy-mc/mgmt-reqs-prep-offline.html) that can guide you to prepare that setup.
 
 Set folders and the following environment variables in your linux jumpbox, as we will use these a few times during the following steps:
 ```bash
@@ -85,10 +85,10 @@ We also need to add acouple other files:
 # change directory to a suitable spot in your jumpbox (~/workspace/ in this guide)
 mkdir -p ~/workspace/winres
 # copy the csi-proxy.exe binary to that location
-# no need to download the SSH Binary for TKG 2.3.0 since it's incldued in the windows bundle -curl -JOL https://github.com/PowerShell/Win32-OpenSSH/releases/download/v8.9.1.0p1-Beta/OpenSSH-Win64.zip
+# no need to download the SSH Binary for TKG 2.3.0 and 2.4.0 since it's incldued in the windows bundle -curl -JOL https://github.com/PowerShell/Win32-OpenSSH/releases/download/v8.9.1.0p1-Beta/OpenSSH-Win64.zip
 # download the Goss Binary
 curl -JOL https://github.com/goss-org/goss/releases/download/v0.3.21/goss-alpha-windows-amd64.exe
-# copy the /windows/cluster/install-ovs-2.ps1 file from this repository into this winres folder, as we need a patchd version of this script on TKG 2.3.0, otherwise it will try to download certain SSL libraries wihout success as we are in an air-gapped environment making the ovsdb-server to fail and the winows nodes to be unable to run containers
+# copy the /windows/cluster/install-ovs-2.ps1 file from this repository into this winres folder, as we need a patchd version of this script on TKG 2.3.0 and 2.4.0, otherwise it will try to download certain SSL libraries wihout success as we are in an air-gapped environment making the ovsdb-server to fail and the winows nodes to be unable to run containers
 cp ~/workspace/tkg-zone/windows/cluster/install-ovs-2.ps1 ~/workspace/winres/
 cd ~/workspace/
 set -m; nohup python3 -m http.server --directory winres > /dev/null 2>&1 & 
@@ -143,8 +143,9 @@ This process will take 60+ minutes: as it creates A VM in your vSphere environme
 
 ### 2.1 Prepare Cluster customizations
 
-There are a few  customizations that are required for Windows/MultiOS clusters that on TKG 2.x.x require us to create a Custom ClusterClass and use jsonPatches in it.
+There are a few  customizations that are required for MultiOS clusters that on TKG 2.x.x require us to create a Custom ClusterClass and use jsonPatches in it.
 - If you are deploying Windows Clusters in an air-gapped environment and/or using a Harbor registry wih self-signed certs you will also need to inject the CA Cert
+- Need to replace the Antrea OVS install ps script to prevent downloading libraries from internet, which will not work in air-gapped environmnts.
 - Disabling MHC for Windows nodes (it's prudent to do so because of Windows network stability but not mandatory)
 
 TODOs: In prior versions we had customizations to enable shorter node names for windows nodes and autoscaler for windows node pools. Older implementations for this are not required but new implementations are a WIP due to some issues. Will be added asap.
@@ -154,23 +155,22 @@ Create Custom ClusterClass for MultiOS cluster and prepare Cluster Overlay
 # Go to the folder in this repo that has all the cluster and ClusterClass configurations
 cd ~/workspace/tkg-zone/windows/cluster/
 # Get OOTB Clusterclass trimming to just the Clusterclass resource
-cp ~/.config/tanzu/tkg/clusterclassconfigs/tkg-vsphere-default-v1.1.0.yaml tkg-vsphere-default-v1.1.0-thick.yaml
-ytt -f tkg-vsphere-default-v1.1.0-thick.yaml -f filter.yaml > tkg-vsphere-default-v1.1.0.yaml
+cp ~/.config/tanzu/tkg/clusterclassconfigs/tkg-vsphere-default-v1.1.1.yaml tkg-vsphere-default-v1.1.1-thick.yaml
+ytt -f tkg-vsphere-default-v1.1.1-thick.yaml -f filter.yaml > tkg-vsphere-default-v1.1.1.yaml
 # Make a copy to customize for MultiOS tweaks
-cp tkg-vsphere-default-v1.1.0.yaml tkg-vsphere-default-multios-ag-cc.yaml
+cp tkg-vsphere-default-v1.1.1.yaml tkg-vsphere-default-multios-ag-cc.yaml
 # Change name
 yq e -i '.metadata.name = "tkg-vsphere-default-multios-ag"' tkg-vsphere-default-multios-ag-cc.yaml # !!!! yq is adding extra spaces in some indentations making the file bigger. If you don't want this, just edit the original file and change the metadata.name manually
 
+vi tkg-vsphere-default-multios-ag-cc.yaml
 # Replace the install-ovs.ps1 reference with our new install-ovs-2.ps1 to avoid the OVS crashing when attempting to download SSL libraries
-# - In the "Install antrea-agent & OVS" section, one of the json patches of the "install-antrea" patch, row 2342: replace this row:
+# - In the "Install antrea-agent & OVS" section, one of the json patches of the "install-antrea" patch, row 2360: replace this row:
 & C:\k\antrea\Install-OVS.ps1 -ImportCertificate $false -LocalFile C:\k\antrea\ovs-win64.zip
 # with these two rows, at the same indentation, replacing "JUMPBOX-IP" with the IP of your jumpbox
 & curl.exe -kL http://JUMPBOX-IP:8000/install-ovs-2.ps1 -o C:\k\antrea\install-ovs-2.ps1
 & C:\k\antrea\install-ovs-2.ps1 -ImportCertificate $false -LocalFile C:\k\antrea\ovs-win64.zip
 
-# If you are added the `csi-proxy.exe` binary in the `additional_executables_list` of your Windows json file, then add the following code in the `windows-antrea` json-patch in after row 2356 (after the Start Services block) in the custom cluster class yaml. include 18 spaces at the beginning of each row for the right indentation
-vi tkg-vsphere-default-multios-ag-cc.yaml
-            
+# If you are added the `csi-proxy.exe` binary in the `additional_executables_list` of your Windows json file, then add the following code in the `windows-antrea` json-patch in after row 2373 (after the Start Services block) in the custom cluster class yaml. include 18 spaces at the beginning of each row for the right indentation
             # Configure and Start CSI Proxy
             $csiflags = "-windows-service -log_file=C:\programdata\temp\csi-proxy.log -logtostderr=false"
             sc.exe create csiproxy binPath= "C:\programdata\temp\csi-proxy.exe $csiflags" start= auto
@@ -185,7 +185,7 @@ kubectl get cc
 # Output should look like this:
 # NAME                             AGE
 # tkg-vsphere-default-multios-ag   51s
-# tkg-vsphere-default-v1.1.0       18h
+# tkg-vsphere-default-v1.1.1       18h
 # Edit the ./windows/cluster-overlay.yaml file and replace the Certificate with the one from your Harbor registry, which is located in `~/workspace/harbor-cacrt.crt`
 vi cluster-overlay.yaml
 ```
@@ -198,17 +198,17 @@ cd ~/workspace/tkg-zone/windows/cluster/
 kubectl apply -f win-osimage.yaml
 ```
 
-Edit the v1.26.5 TKR to add windows `bootstrapPackage` and `osImage`:
+Edit the v1.27.5 TKR to add windows `bootstrapPackage` and `osImage`:
 ```bash
-kubectl edit tkr v1.26.5---vmware.2-tkg.1
+kubectl edit tkr v1.27.5---vmware.1-tkg.1
 # Add, keeping existing bootstrapPackages
 # spec:
 #    bootstrapPackages:
-#    - name: tkg-windows.tanzu.vmware.com.0.30.0+vmware.1
+#    - name: tkg-windows.tanzu.vmware.com.0.31.0+vmware.1
 # Add, keeping existing osImages
 # spec:
 #    osImages:
-#    - name: v1.26.5---vmware.2-tkg.1-windows
+#    - name: v1.27.5---vmware.1-tkg.1-windows
 ```
 
 ### 2.3 Prepare MultiOS Cluster config files
