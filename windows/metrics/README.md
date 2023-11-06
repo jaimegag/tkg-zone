@@ -45,9 +45,9 @@ Follow these steps
 cd ~/workspace/tkg-zone/windows/metrics
 # Prepare Tanzu Standard Package repository (if you haven't already)
 kubectl create ns tanzu-user-managed-packages
-tanzu package repository add tanzu-standard --url $REPO_HARBOR_REGISTRY/tkg/packages/standard/repo:v2023.7.13 -n tanzu-user-managed-packages
+tanzu package repository add tanzu-standard --url $REPO_HARBOR_REGISTRY/tkg/packages/standard/repo:v2023.9.19 -n tanzu-user-managed-packages
 # Deploy Package using the prometheus-values.yaml included in this location of the repo. This will expose the Prometheus Server service as Load Balancer (this is optional)
-tanzu package install prometheus --package prometheus.tanzu.vmware.com --version 2.43.0+vmware.2-tkg.1 --namespace tanzu-user-managed-packages --values-file prometheus-values.yaml --ytt-overlay-file prometheus-overlay.yaml
+tanzu package install prometheus --package prometheus.tanzu.vmware.com --version 2.45.0+vmware.1-tkg.1 --namespace tanzu-user-managed-packages --values-file prometheus-values.yaml --ytt-overlay-file prometheus-overlay.yaml
 # Confirm reconsiliation succeeds by checking with this command, and look for 
 #      STATUS:                  Reconcile succeeded
 tanzu package installed get prometheus -n tanzu-user-managed-packages
