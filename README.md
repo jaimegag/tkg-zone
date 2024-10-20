@@ -5,6 +5,7 @@ This repository exists to capture helper tools, guides and configurations to be 
 Sincerely: a Tanzu Solution Engineer.
 
 Index of use cases:
+1. [TKG baseline airgap setup](/baselineairgap/README.md)
 1. [Windows Containers advanced](/windows/README.md).
 2. [SMB CSI Driver setup](/smb-csi/README.md)
 3. [Windows basic sample apps](/windows/samples/README.md).
